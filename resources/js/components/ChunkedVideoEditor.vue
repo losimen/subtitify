@@ -27,11 +27,21 @@
               'active': currentChunkIndex === index,
               'invalid': !subtitleStore.getChunkValidationStatus(entry.id).isValid
             }"
-            @click="selectChunk(index)"
           >
-            <div class="chunk-number">{{ index + 1 }}</div>
-            <div class="chunk-timing">{{ entry.startTimeFormatted }} - {{ entry.endTimeFormatted }}</div>
-            <div class="chunk-text-preview">{{ entry.text.substring(0, 30) }}{{ entry.text.length > 30 ? '...' : '' }}</div>
+            <div class="chunk-content" @click="selectChunk(index)">
+              <div class="chunk-number">{{ index + 1 }}</div>
+              <div class="chunk-timing">{{ entry.startTimeFormatted }} - {{ entry.endTimeFormatted }}</div>
+              <div class="chunk-text-preview">{{ entry.text.substring(0, 30) }}{{ entry.text.length > 30 ? '...' : '' }}</div>
+            </div>
+            <button
+              @click.stop="deleteChunk(entry.id, index)"
+              class="delete-chunk-btn"
+              :class="{ 'disabled': subtitleStore.subtitleCount <= 1 }"
+              :disabled="subtitleStore.subtitleCount <= 1"
+              :title="subtitleStore.subtitleCount <= 1 ? 'Cannot delete the last chunk' : 'Delete chunk'"
+            >
+              🗑️
+            </button>
           </div>
         </div>
       </div>
@@ -125,9 +135,9 @@
                 <div class="styling-group">
                   <label>Position</label>
                   <select v-model="textStyling.position" @change="onStylingChange" class="styling-select">
-                    <option value="top">⬆️ Top</option>
-                    <option value="center">⬇️ Center</option>
-                    <option value="bottom">⬇️ Bottom</option>
+                    <option value="top">👆 Top</option>
+                    <option value="center">🫵 Center</option>
+                    <option value="bottom">👇 Bottom</option>
                   </select>
                 </div>
               </div>
@@ -173,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { useSubtitleStore } from '../stores/subtitle'
 import { SubtitleService } from '../services/subtitle.service'
@@ -233,6 +243,21 @@ onMounted(() => {
 
   // Initialize editing text
   updateEditingText()
+
+  // Add keyboard event listener for delete key
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Delete' && currentSubtitle.value && subtitleStore.subtitleCount > 1) {
+      event.preventDefault()
+      deleteChunk(currentSubtitle.value.id, currentChunkIndex.value)
+    }
+  }
+
+  document.addEventListener('keydown', handleKeyDown)
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeyDown)
+  })
 })
 
 // Watch for chunk changes to update video position and text
@@ -314,6 +339,35 @@ const selectChunk = (index: number) => {
   subtitleStore.setActiveChunkIndex(index)
   if (videoPlayer.value && currentSubtitle.value) {
     videoPlayer.value.currentTime = currentSubtitle.value.startTime
+  }
+}
+
+const deleteChunk = (entryId: string, index: number) => {
+  // Prevent deleting the last chunk
+  if (subtitleStore.subtitleCount <= 1) {
+    alert('Cannot delete the last chunk. You need at least one subtitle chunk.')
+    return
+  }
+
+  // Show confirmation dialog
+  if (confirm(`Are you sure you want to delete chunk ${index + 1}?\n\n"${subtitleStore.subtitleData?.entries[index]?.text.substring(0, 50)}${subtitleStore.subtitleData?.entries[index]?.text.length > 50 ? '...' : ''}"\n\nThis action cannot be undone.`)) {
+    // Remove the entry from the store
+    subtitleStore.removeEntry(entryId)
+
+    // Save changes to session
+    subtitleStore.saveToSession()
+
+    // Adjust active chunk index if needed
+    if (currentChunkIndex.value >= index && currentChunkIndex.value > 0) {
+      subtitleStore.setActiveChunkIndex(currentChunkIndex.value - 1)
+    } else if (currentChunkIndex.value >= subtitleStore.subtitleCount) {
+      subtitleStore.setActiveChunkIndex(Math.max(0, subtitleStore.subtitleCount - 1))
+    }
+
+    // Update editing text if we're editing the deleted chunk
+    updateEditingText()
+
+    console.log(`Deleted chunk ${index + 1} with ID: ${entryId}`)
   }
 }
 
@@ -542,8 +596,17 @@ const formatDuration = (seconds: number): string => {
   background-color: #333;
   border: 1px solid #444;
   border-radius: 4px;
-  cursor: pointer;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chunk-content {
+  flex: 1;
+  cursor: pointer;
+  min-width: 0; /* Allow content to shrink */
 }
 
 .chunk-nav-item:hover {
@@ -592,6 +655,39 @@ const formatDuration = (seconds: number): string => {
   font-size: 10px;
   line-height: 1.1;
   color: #ccc;
+}
+
+.delete-chunk-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: 3px;
+  transition: all 0.3s;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.delete-chunk-btn:hover {
+  opacity: 1;
+  background-color: rgba(220, 53, 69, 0.2);
+  transform: scale(1.1);
+}
+
+.delete-chunk-btn:active {
+  transform: scale(0.95);
+}
+
+.delete-chunk-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.delete-chunk-btn.disabled:hover {
+  opacity: 0.3;
+  background-color: transparent;
+  transform: none;
 }
 
 .video-player-area {
@@ -941,6 +1037,16 @@ const formatDuration = (seconds: number): string => {
   .chunk-text-editing {
     flex: none;
     height: 200px;
+  }
+
+  .chunk-nav-item {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .delete-chunk-btn {
+    font-size: 16px;
+    padding: 6px;
   }
 
   .text-editing-header {
