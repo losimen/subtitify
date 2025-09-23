@@ -6,6 +6,9 @@
         <button @click="addNewChunk" class="add-button">
           + Add New Chunk
         </button>
+        <button @click="exportSubtitles" class="export-button">
+          📤 Export
+        </button>
         <button @click="goBack" class="back-button">
           ← Back to Video
         </button>
@@ -242,7 +245,7 @@ const updateEditingText = () => {
     editingText.value = currentSubtitle.value.text
     originalText.value = currentSubtitle.value.text
     hasTextChanges.value = false
-    
+
     // Load styling from current subtitle entry
     textStyling.size = currentSubtitle.value.styling.size
     textStyling.color = currentSubtitle.value.styling.color
@@ -282,7 +285,7 @@ const saveTextChanges = () => {
 const resetTextChanges = () => {
   editingText.value = originalText.value
   hasTextChanges.value = false
-  
+
   // Reset styling to original values
   if (currentSubtitle.value) {
     textStyling.size = currentSubtitle.value.styling.size
@@ -350,36 +353,81 @@ const onPause = () => {
   subtitleStore.setPlaying(false)
 }
 
-
-const exportSubtitles = () => {
-  const validation = subtitleStore.validateAllChunks()
-
-  if (!validation.isValid) {
-    const errorMessage = `Cannot export subtitles. Please fix the following issues:\n\n${validation.invalidChunks.map(chunkId => {
-      const chunkIndex = subtitleStore.getChunkIndexById(chunkId)
-      const errors = validation.errors[chunkId] || []
-      return `Chunk ${chunkIndex + 1}: ${errors.join(', ')}`
-    }).join('\n')}`
-
-    alert(errorMessage)
-    return
-  }
-
-  const exportedText = subtitleStore.exportSubtitles()
-  const blob = new Blob([exportedText], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'subtitles.txt'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
 const goBack = () => {
   subtitleStore.stopEditing()
   router.visit('/subtitle')
+}
+
+const exportSubtitles = async () => {
+  try {
+    const storedFile = sessionStorage.getItem('uploadedFile')
+      console.log(storedFile)
+    let fileData = null
+
+    if (storedFile) {
+      try {
+        fileData = JSON.parse(storedFile)
+      } catch (error) {
+        console.error('Error parsing stored file data:', error)
+      }
+    }
+
+    if (!fileData) {
+      alert('No video file found. Please upload a video first.')
+      return
+    }
+
+    // Show loading state
+    const exportButton = document.querySelector('.export-button')
+    if (exportButton) {
+      exportButton.textContent = '⏳ Processing...'
+      exportButton.disabled = true
+    }
+
+    const exportData = {
+      file: fileData,
+      subtitles: subtitleStore.subtitleData
+    }
+
+    const response = await fetch('/api/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+      },
+      body: JSON.stringify(exportData)
+    })
+
+    if (response.ok) {
+      // Handle file download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `subtitled_video_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp4`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      console.log('Export successful')
+      alert('Video with subtitles downloaded successfully!')
+    } else {
+      const errorData = await response.json()
+      console.error('Export failed:', errorData)
+      alert(`Export failed: ${errorData.error || response.statusText}`)
+    }
+  } catch (error) {
+    console.error('Export error:', error)
+    alert('Export failed. Please try again.')
+  } finally {
+    // Reset button state
+    const exportButton = document.querySelector('.export-button')
+    if (exportButton) {
+      exportButton.textContent = '📤 Export'
+      exportButton.disabled = false
+    }
+  }
 }
 
 const formatTime = (seconds: number): string => {
@@ -420,7 +468,7 @@ const formatDuration = (seconds: number): string => {
   gap: 15px;
 }
 
-.add-button, .back-button {
+.add-button, .export-button, .back-button {
   padding: 5px 10px;
   border: none;
   border-radius: 4px;
@@ -437,6 +485,15 @@ const formatDuration = (seconds: number): string => {
 
 .add-button:hover {
   background-color: #218838;
+}
+
+.export-button {
+  background-color: #007bff;
+  color: white;
+}
+
+.export-button:hover {
+  background-color: #0056b3;
 }
 
 .back-button {
