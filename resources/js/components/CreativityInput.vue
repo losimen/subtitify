@@ -30,6 +30,9 @@ const handleFileChange = (event: Event) => {
 const handleStart = async () => {
   if (selectedFile.value) {
     try {
+      // Clear session storage before uploading new file
+      sessionStorage.clear()
+
       // Convert file to base64 for persistent storage
       const base64Data = await fileToBase64(selectedFile.value)
 
