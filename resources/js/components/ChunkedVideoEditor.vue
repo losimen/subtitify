@@ -76,7 +76,7 @@
 
         <!-- Video Controls -->
         <div class="video-controls">
-          <button @click="playChunk" class="play-chunk-btn" :disabled="!currentSubtitle">
+          <button @click="playChunk" class="play-chunk-btn" :disabled="!activeChunk">
             ▶️ Play This Chunk
           </button>
           <button @click="playPause" class="play-pause-btn">
@@ -95,15 +95,15 @@
             <div class="chunk-details">
               <div class="detail-item">
                 <label>Start Time:</label>
-                <span>{{ currentSubtitle?.startTimeFormatted || '00:00' }}</span>
+                <span>{{ activeChunk?.startTimeFormatted || '00:00' }}</span>
               </div>
               <div class="detail-item">
                 <label>End Time:</label>
-                <span>{{ currentSubtitle?.endTimeFormatted || '00:00' }}</span>
+                <span>{{ activeChunk?.endTimeFormatted || '00:00' }}</span>
               </div>
               <div class="detail-item">
                 <label>Duration:</label>
-                <span>{{ currentSubtitle ? formatDuration(currentSubtitle.endTime - currentSubtitle.startTime) : '00:00' }}</span>
+                <span>{{ activeChunk ? formatDuration(activeChunk.endTime - activeChunk.startTime) : '00:00' }}</span>
               </div>
             </div>
           </div>
@@ -210,7 +210,8 @@ const textStyling = reactive({
 })
 
 // Computed properties
-const currentSubtitle = computed(() => subtitleStore.activeChunk)
+const currentSubtitle = computed(() => subtitleStore.currentSubtitle)
+const activeChunk = computed(() => subtitleStore.activeChunk)
 const currentChunkIndex = computed(() => subtitleStore.activeChunkIndex)
 
 const currentTime = computed(() => subtitleStore.currentTime)
@@ -243,9 +244,9 @@ onMounted(() => {
 
   // Add keyboard event listener for delete key
   const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Delete' && currentSubtitle.value && subtitleStore.subtitleCount > 1) {
+    if (event.key === 'Delete' && activeChunk.value && subtitleStore.subtitleCount > 1) {
       event.preventDefault()
-      deleteChunk(currentSubtitle.value.id, currentChunkIndex.value)
+      deleteChunk(activeChunk.value.id, currentChunkIndex.value)
     }
   }
 
@@ -259,32 +260,32 @@ onMounted(() => {
 
 // Watch for chunk changes to update video position and text
 watch(() => subtitleStore.activeChunkIndex, (newIndex) => {
-  if (currentSubtitle.value && videoPlayer.value) {
-    videoPlayer.value.currentTime = currentSubtitle.value.startTime
+  if (activeChunk.value && videoPlayer.value) {
+    videoPlayer.value.currentTime = activeChunk.value.startTime
   }
   // Update editing text when chunk changes
   updateEditingText()
 })
 
-// Watch for current subtitle changes to update editing text
-watch(() => currentSubtitle.value, () => {
+// Watch for active chunk changes to update editing text
+watch(() => activeChunk.value, () => {
   updateEditingText()
 })
 
 
 // Text editing functions
 const updateEditingText = () => {
-  if (currentSubtitle.value) {
-    editingText.value = currentSubtitle.value.text
-    originalText.value = currentSubtitle.value.text
+  if (activeChunk.value) {
+    editingText.value = activeChunk.value.text
+    originalText.value = activeChunk.value.text
     hasTextChanges.value = false
     // Update global state
     subtitleStore.setHasTextChanges(false)
 
     // Load styling from current subtitle entry
-    textStyling.size = currentSubtitle.value.styling.size
-    textStyling.color = currentSubtitle.value.styling.color
-    textStyling.position = currentSubtitle.value.styling.position
+    textStyling.size = activeChunk.value.styling.size
+    textStyling.color = activeChunk.value.styling.color
+    textStyling.position = activeChunk.value.styling.position
   } else {
     editingText.value = ''
     originalText.value = ''
@@ -301,10 +302,10 @@ const onTextChange = () => {
 }
 
 const saveTextChanges = () => {
-  if (!currentSubtitle.value || !hasTextChanges.value) return
+  if (!activeChunk.value || !hasTextChanges.value) return
 
   const updatedEntry: SubtitleEntry = {
-    ...currentSubtitle.value,
+    ...activeChunk.value,
     text: editingText.value.trim(),
     styling: {
       size: textStyling.size,
@@ -330,10 +331,10 @@ const resetTextChanges = () => {
   subtitleStore.setHasTextChanges(false)
 
   // Reset styling to original values
-  if (currentSubtitle.value) {
-    textStyling.size = currentSubtitle.value.styling.size
-    textStyling.color = currentSubtitle.value.styling.color
-    textStyling.position = currentSubtitle.value.styling.position
+  if (activeChunk.value) {
+    textStyling.size = activeChunk.value.styling.size
+    textStyling.color = activeChunk.value.styling.color
+    textStyling.position = activeChunk.value.styling.position
   }
 }
 
@@ -346,8 +347,8 @@ const onStylingChange = () => {
 
 const selectChunk = (index: number) => {
   subtitleStore.setActiveChunkIndex(index)
-  if (videoPlayer.value && currentSubtitle.value) {
-    videoPlayer.value.currentTime = currentSubtitle.value.startTime
+  if (videoPlayer.value && activeChunk.value) {
+    videoPlayer.value.currentTime = activeChunk.value.startTime
   }
 }
 
@@ -379,8 +380,8 @@ const deleteChunk = (entryId: string, index: number) => {
 }
 
 const playChunk = () => {
-  if (currentSubtitle.value && videoPlayer.value) {
-    videoPlayer.value.currentTime = currentSubtitle.value.startTime
+  if (activeChunk.value && videoPlayer.value) {
+    videoPlayer.value.currentTime = activeChunk.value.startTime
     videoPlayer.value.play()
   }
 }
