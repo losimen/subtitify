@@ -95,22 +95,24 @@
           <div class="chunk-text-editing">
             <h4>Edit Chunk Text</h4>
             <div class="text-editor-container">
-              <textarea
-                v-model="editingText"
-                @input="onTextChange"
-                @blur="saveTextChanges"
-                class="text-editor"
-                placeholder="Enter chunk text..."
-                rows="4"
-              ></textarea>
-              <div class="text-editor-actions">
-                <button @click="saveTextChanges" class="save-text-btn" :disabled="!hasTextChanges">
-                  Save Changes
-                </button>
-                <button @click="resetTextChanges" class="reset-text-btn" :disabled="!hasTextChanges">
-                  Reset
-                </button>
-                <span v-if="hasTextChanges" class="unsaved-indicator">● Unsaved changes</span>
+              <div class="text-editor-wrapper">
+                <textarea
+                  v-model="editingText"
+                  @input="onTextChange"
+                  @blur="saveTextChanges"
+                  class="text-editor"
+                  placeholder="Enter chunk text..."
+                  rows="3"
+                ></textarea>
+                <div class="text-editor-overlay">
+                  <button @click="saveTextChanges" class="save-text-btn" :disabled="!hasTextChanges" title="Save Changes">
+                    ✓
+                  </button>
+                  <button @click="resetTextChanges" class="reset-text-btn" :disabled="!hasTextChanges" title="Reset">
+                    ↺
+                  </button>
+                  <span v-if="hasTextChanges" class="unsaved-indicator">●</span>
+                </div>
               </div>
             </div>
           </div>
@@ -623,43 +625,61 @@ const formatDuration = (seconds: number): string => {
 .text-editor-container {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  flex: 1;
+}
+
+.text-editor-wrapper {
+  position: relative;
   flex: 1;
 }
 
 .text-editor {
-  flex: 1;
+  width: 100%;
+  height: auto;
   background-color: #333;
   color: white;
   border: 2px solid #555;
   border-radius: 6px;
-  padding: 6px;
+  padding: 6px 40px 6px 6px; /* Right padding for buttons */
   font-size: 12px;
   font-family: inherit;
   resize: vertical;
-  min-height: 40px;
+  min-height: 30px;
   outline: none;
   transition: border-color 0.3s;
+  box-sizing: border-box;
 }
 
 .text-editor:focus {
   border-color: #007bff;
 }
 
-.text-editor-actions {
+.text-editor-overlay {
+  position: absolute;
+  top: 6px;
+  right: 6px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.text-editor-overlay button {
+  pointer-events: auto;
 }
 
 .save-text-btn, .reset-text-btn {
-  padding: 4px 8px;
+  width: 20px;
+  height: 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 12px;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .save-text-btn {
@@ -674,6 +694,7 @@ const formatDuration = (seconds: number): string => {
 .save-text-btn:disabled {
   background-color: #555;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .reset-text-btn {
@@ -688,11 +709,12 @@ const formatDuration = (seconds: number): string => {
 .reset-text-btn:disabled {
   background-color: #555;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .unsaved-indicator {
   color: #ffc107;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -754,7 +776,7 @@ const formatDuration = (seconds: number): string => {
   }
 
   .text-editor {
-    min-height: 120px;
+    min-height: 100px;
   }
 
   .timeline-editor-container {
