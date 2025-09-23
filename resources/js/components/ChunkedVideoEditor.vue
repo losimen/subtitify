@@ -16,11 +16,11 @@
       <!-- Chunk Navigation -->
       <div class="chunk-navigation">
         <div class="chunk-list">
-          <div 
-            v-for="(entry, index) in subtitleStore.subtitleData?.entries || []" 
+          <div
+            v-for="(entry, index) in subtitleStore.subtitleData?.entries || []"
             :key="entry.id"
             class="chunk-nav-item"
-            :class="{ 'active': currentChunkIndex === index, 'editing': editingChunkIndex === index }"
+            :class="{ 'active': currentChunkIndex === index }"
             @click="selectChunk(index)"
           >
             <div class="chunk-number">{{ index + 1 }}</div>
@@ -33,9 +33,9 @@
       <!-- Video Player Area -->
       <div class="video-player-area">
         <div class="video-container">
-          <video 
-            ref="videoPlayer" 
-            :src="videoUrl" 
+          <video
+            ref="videoPlayer"
+            :src="videoUrl"
             class="video-player"
             @loadedmetadata="onVideoLoaded"
             @timeupdate="onTimeUpdate"
@@ -44,7 +44,7 @@
           >
             Your browser does not support the video tag.
           </video>
-          
+
           <!-- Current Subtitle Display -->
           <div v-if="currentSubtitle" class="subtitle-display">
             <p class="subtitle-text">{{ currentSubtitle.text }}</p>
@@ -86,106 +86,11 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Editing Panel -->
-      <div class="editing-panel">
-        <div v-if="editingChunkIndex !== null && currentSubtitle" class="edit-form">
-          <h3>Edit Chunk {{ editingChunkIndex + 1 }}</h3>
-          <form @submit.prevent="saveChunkChanges">
-            <div class="form-group">
-              <label>Start Time (MM:SS)</label>
-              <input 
-                v-model="editForm.startTimeFormatted" 
-                type="text" 
-                pattern="[0-9]{2}:[0-9]{2}"
-                placeholder="00:00"
-                required
-              />
-            </div>
-            
-            <div class="form-group">
-              <label>End Time (MM:SS)</label>
-              <input 
-                v-model="editForm.endTimeFormatted" 
-                type="text" 
-                pattern="[0-9]{2}:[0-9]{2}"
-                placeholder="00:04"
-                required
-              />
-            </div>
-            
-            <div class="form-group">
-              <label>Subtitle Text</label>
-              <textarea 
-                v-model="editForm.text" 
-                placeholder="Enter subtitle text..."
-                required
-              ></textarea>
-            </div>
-            
-            <div class="form-actions">
-              <button type="submit" class="save-btn">Save Changes</button>
-              <button type="button" @click="cancelEdit" class="cancel-btn">Cancel</button>
-              <button type="button" @click="deleteChunk" class="delete-btn">Delete Chunk</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Add New Chunk Form -->
-        <div v-if="showAddForm" class="edit-form">
-          <h3>Add New Chunk</h3>
-          <form @submit.prevent="addChunk">
-            <div class="form-group">
-              <label>Start Time (MM:SS)</label>
-              <input 
-                v-model="newChunkForm.startTimeFormatted" 
-                type="text" 
-                pattern="[0-9]{2}:[0-9]{2}"
-                placeholder="00:00"
-                required
-              />
-            </div>
-            
-            <div class="form-group">
-              <label>End Time (MM:SS)</label>
-              <input 
-                v-model="newChunkForm.endTimeFormatted" 
-                type="text" 
-                pattern="[0-9]{2}:[0-9]{2}"
-                placeholder="00:04"
-                required
-              />
-            </div>
-            
-            <div class="form-group">
-              <label>Subtitle Text</label>
-              <textarea 
-                v-model="newChunkForm.text" 
-                placeholder="Enter subtitle text..."
-                required
-              ></textarea>
-            </div>
-            
-            <div class="form-actions">
-              <button type="submit" class="save-btn">Add Chunk</button>
-              <button type="button" @click="cancelAdd" class="cancel-btn">Cancel</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Chunk Actions -->
-        <div v-if="!showAddForm && editingChunkIndex === null" class="chunk-actions">
-          <button @click="startEditChunk" class="edit-chunk-btn" :disabled="!currentSubtitle">
-            ✏️ Edit This Chunk
-          </button>
-          <button @click="addNewChunk" class="add-chunk-btn">
-            + Add New Chunk
-          </button>
-          <button @click="exportSubtitles" class="export-btn">
-            📁 Export Subtitles
-          </button>
-        </div>
-      </div>
+    <!-- Timeline Editor - Full Width Bottom -->
+    <div class="timeline-editor-container">
+      <TimelineEditor :video-player="videoPlayer" />
     </div>
 
     <div class="editor-footer">
@@ -202,36 +107,16 @@ import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { useSubtitleStore } from '../stores/subtitle'
 import { SubtitleService } from '../services/subtitle.service'
+import TimelineEditor from './TimelineEditor.vue'
 import type { SubtitleEntry } from '../types/subtitle'
 
 const subtitleStore = useSubtitleStore()
 const videoPlayer = ref<HTMLVideoElement | null>(null)
 const videoUrl = ref<string>('')
-const currentChunkIndex = ref(0)
-const editingChunkIndex = ref<number | null>(null)
-const showAddForm = ref(false)
-
-// Edit form data
-const editForm = reactive({
-  startTimeFormatted: '',
-  endTimeFormatted: '',
-  text: ''
-})
-
-// New chunk form data
-const newChunkForm = reactive({
-  startTimeFormatted: '',
-  endTimeFormatted: '',
-  text: ''
-})
 
 // Computed properties
-const currentSubtitle = computed(() => {
-  if (!subtitleStore.subtitleData || currentChunkIndex.value >= subtitleStore.subtitleData.entries.length) {
-    return null
-  }
-  return subtitleStore.subtitleData.entries[currentChunkIndex.value]
-})
+const currentSubtitle = computed(() => subtitleStore.activeChunk)
+const currentChunkIndex = computed(() => subtitleStore.activeChunkIndex)
 
 const currentTime = computed(() => subtitleStore.currentTime)
 const isPlaying = computed(() => subtitleStore.isPlaying)
@@ -239,7 +124,7 @@ const isPlaying = computed(() => subtitleStore.isPlaying)
 onMounted(() => {
   // Load subtitles from session storage
   subtitleStore.loadFromSession()
-  
+
   // Check if we have subtitles, if not redirect to home
   if (!subtitleStore.hasSubtitles) {
     router.visit('/')
@@ -266,14 +151,14 @@ onMounted(() => {
 })
 
 // Watch for chunk changes to update video position
-watch(currentChunkIndex, (newIndex) => {
+watch(() => subtitleStore.activeChunkIndex, (newIndex) => {
   if (currentSubtitle.value && videoPlayer.value) {
     videoPlayer.value.currentTime = currentSubtitle.value.startTime
   }
 })
 
 const selectChunk = (index: number) => {
-  currentChunkIndex.value = index
+  subtitleStore.setActiveChunkIndex(index)
   if (videoPlayer.value && currentSubtitle.value) {
     videoPlayer.value.currentTime = currentSubtitle.value.startTime
   }
@@ -303,7 +188,7 @@ const onVideoLoaded = () => {
 const onTimeUpdate = () => {
   if (videoPlayer.value) {
     subtitleStore.setCurrentTime(videoPlayer.value.currentTime)
-    
+
     // Auto-advance to next chunk if current time exceeds current chunk
     if (currentSubtitle.value && videoPlayer.value.currentTime > currentSubtitle.value.endTime) {
       if (currentChunkIndex.value < (subtitleStore.subtitleData?.entries.length || 0) - 1) {
@@ -321,125 +206,6 @@ const onPause = () => {
   subtitleStore.setPlaying(false)
 }
 
-const startEditChunk = () => {
-  if (currentSubtitle.value) {
-    editingChunkIndex.value = currentChunkIndex.value
-    editForm.startTimeFormatted = currentSubtitle.value.startTimeFormatted
-    editForm.endTimeFormatted = currentSubtitle.value.endTimeFormatted
-    editForm.text = currentSubtitle.value.text
-  }
-}
-
-const saveChunkChanges = () => {
-  if (!currentSubtitle.value || editingChunkIndex.value === null) return
-
-  // Validate time format
-  if (!isValidTimeFormat(editForm.startTimeFormatted) || !isValidTimeFormat(editForm.endTimeFormatted)) {
-    alert('Please enter time in MM:SS format (e.g., 00:30)')
-    return
-  }
-
-  const startTime = SubtitleService.timeStringToSeconds(editForm.startTimeFormatted)
-  const endTime = SubtitleService.timeStringToSeconds(editForm.endTimeFormatted)
-
-  if (startTime >= endTime) {
-    alert('End time must be after start time')
-    return
-  }
-
-  // Check for overlapping subtitles
-  if (hasOverlappingSubtitles(startTime, endTime, currentSubtitle.value.id)) {
-    alert('This time range overlaps with another subtitle. Please adjust the timing.')
-    return
-  }
-
-  const updatedEntry: SubtitleEntry = {
-    ...currentSubtitle.value,
-    startTime,
-    endTime,
-    text: editForm.text.trim(),
-    startTimeFormatted: editForm.startTimeFormatted,
-    endTimeFormatted: editForm.endTimeFormatted
-  }
-
-  subtitleStore.updateEntry(updatedEntry)
-  subtitleStore.saveToSession()
-  cancelEdit()
-}
-
-const cancelEdit = () => {
-  editingChunkIndex.value = null
-  editForm.startTimeFormatted = ''
-  editForm.endTimeFormatted = ''
-  editForm.text = ''
-}
-
-const addNewChunk = () => {
-  showAddForm.value = true
-  newChunkForm.startTimeFormatted = ''
-  newChunkForm.endTimeFormatted = ''
-  newChunkForm.text = ''
-}
-
-const addChunk = () => {
-  // Validate time format
-  if (!isValidTimeFormat(newChunkForm.startTimeFormatted) || !isValidTimeFormat(newChunkForm.endTimeFormatted)) {
-    alert('Please enter time in MM:SS format (e.g., 00:30)')
-    return
-  }
-
-  const startTime = SubtitleService.timeStringToSeconds(newChunkForm.startTimeFormatted)
-  const endTime = SubtitleService.timeStringToSeconds(newChunkForm.endTimeFormatted)
-
-  if (startTime >= endTime) {
-    alert('End time must be after start time')
-    return
-  }
-
-  // Check for overlapping subtitles
-  if (hasOverlappingSubtitles(startTime, endTime)) {
-    alert('This time range overlaps with another subtitle. Please adjust the timing.')
-    return
-  }
-
-  const newEntry: SubtitleEntry = {
-    id: subtitleStore.generateNewId(),
-    startTime,
-    endTime,
-    text: newChunkForm.text.trim(),
-    startTimeFormatted: newChunkForm.startTimeFormatted,
-    endTimeFormatted: newChunkForm.endTimeFormatted
-  }
-
-  subtitleStore.addEntry(newEntry)
-  subtitleStore.saveToSession()
-  cancelAdd()
-  
-  // Navigate to the new chunk
-  const newIndex = subtitleStore.subtitleData?.entries.findIndex(e => e.id === newEntry.id) || 0
-  currentChunkIndex.value = newIndex
-}
-
-const cancelAdd = () => {
-  showAddForm.value = false
-  newChunkForm.startTimeFormatted = ''
-  newChunkForm.endTimeFormatted = ''
-  newChunkForm.text = ''
-}
-
-const deleteChunk = () => {
-  if (currentSubtitle.value && confirm('Are you sure you want to delete this chunk?')) {
-    subtitleStore.removeEntry(currentSubtitle.value.id)
-    subtitleStore.saveToSession()
-    
-    // Adjust current chunk index
-    if (currentChunkIndex.value >= (subtitleStore.subtitleData?.entries.length || 0)) {
-      currentChunkIndex.value = Math.max(0, (subtitleStore.subtitleData?.entries.length || 0) - 1)
-    }
-    
-    cancelEdit()
-  }
-}
 
 const exportSubtitles = () => {
   const exportedText = subtitleStore.exportSubtitles()
@@ -467,23 +233,6 @@ const formatDuration = (seconds: number): string => {
   return SubtitleService.secondsToTimeString(seconds)
 }
 
-const isValidTimeFormat = (timeStr: string): boolean => {
-  return /^\d{2}:\d{2}$/.test(timeStr)
-}
-
-const hasOverlappingSubtitles = (startTime: number, endTime: number, excludeId?: string): boolean => {
-  if (!subtitleStore.subtitleData) return false
-  
-  return subtitleStore.subtitleData.entries.some(entry => {
-    if (excludeId && entry.id === excludeId) return false
-    
-    return (
-      (startTime >= entry.startTime && startTime < entry.endTime) ||
-      (endTime > entry.startTime && endTime <= entry.endTime) ||
-      (startTime <= entry.startTime && endTime >= entry.endTime)
-    )
-  })
-}
 </script>
 
 <style scoped>
@@ -492,6 +241,7 @@ const hasOverlappingSubtitles = (startTime: number, endTime: number, excludeId?:
   background-color: black;
   color: white;
   padding: 20px;
+  padding-bottom: 300px; /* Space for fixed timeline editor */
 }
 
 .editor-header {
@@ -544,9 +294,9 @@ const hasOverlappingSubtitles = (startTime: number, endTime: number, excludeId?:
 
 .editor-content {
   display: grid;
-  grid-template-columns: 300px 1fr 350px;
+  grid-template-columns: 300px 1fr;
   gap: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .chunk-navigation {
@@ -722,141 +472,16 @@ const hasOverlappingSubtitles = (startTime: number, endTime: number, excludeId?:
   font-weight: 600;
 }
 
-.editing-panel {
+.timeline-editor-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   background-color: #222;
-  border-radius: 8px;
-  padding: 20px;
-  max-height: 600px;
+  border-top: 2px solid #333;
+  z-index: 1000;
+  max-height: 50vh;
   overflow-y: auto;
-}
-
-.edit-form h3 {
-  margin: 0 0 20px 0;
-  color: #007bff;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #ccc;
-}
-
-.form-group input,
-.form-group textarea {
-  width: 100%;
-  padding: 10px;
-  background-color: #333;
-  color: white;
-  border: 2px solid #555;
-  border-radius: 6px;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #007bff;
-  background-color: #444;
-}
-
-.form-group textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-
-.form-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.save-btn, .cancel-btn, .delete-btn {
-  padding: 10px 15px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.save-btn {
-  background-color: #28a745;
-  color: white;
-}
-
-.save-btn:hover {
-  background-color: #218838;
-}
-
-.cancel-btn {
-  background-color: #6c757d;
-  color: white;
-}
-
-.cancel-btn:hover {
-  background-color: #5a6268;
-}
-
-.delete-btn {
-  background-color: #dc3545;
-  color: white;
-}
-
-.delete-btn:hover {
-  background-color: #c82333;
-}
-
-.chunk-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.edit-chunk-btn, .add-chunk-btn, .export-btn {
-  padding: 12px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.edit-chunk-btn {
-  background-color: #007bff;
-  color: white;
-}
-
-.edit-chunk-btn:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.edit-chunk-btn:disabled {
-  background-color: #555;
-  cursor: not-allowed;
-}
-
-.add-chunk-btn {
-  background-color: #28a745;
-  color: white;
-}
-
-.add-chunk-btn:hover {
-  background-color: #218838;
-}
-
-.export-btn {
-  background-color: #6c757d;
-  color: white;
-}
-
-.export-btn:hover {
-  background-color: #5a6268;
 }
 
 .editor-footer {
@@ -876,7 +501,7 @@ const hasOverlappingSubtitles = (startTime: number, endTime: number, excludeId?:
 
 @media (max-width: 1200px) {
   .editor-content {
-    grid-template-columns: 250px 1fr 300px;
+    grid-template-columns: 250px 1fr;
   }
 }
 
@@ -885,14 +510,22 @@ const hasOverlappingSubtitles = (startTime: number, endTime: number, excludeId?:
     grid-template-columns: 1fr;
     gap: 15px;
   }
-  
+
   .header-actions {
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .video-controls {
     flex-wrap: wrap;
+  }
+
+  .chunked-video-editor {
+    padding-bottom: 400px; /* More space for mobile timeline */
+  }
+
+  .timeline-editor-container {
+    max-height: 60vh; /* More height on mobile */
   }
 }
 </style>

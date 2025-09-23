@@ -11,6 +11,7 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   const isPlaying = ref(false)
   const isEditing = ref(false)
   const editingEntry = ref<SubtitleEntry | null>(null)
+  const activeChunkIndex = ref(0)
 
   // Getters
   const currentSubtitle = computed(() => {
@@ -28,6 +29,13 @@ export const useSubtitleStore = defineStore('subtitle', () => {
 
   const hasSubtitles = computed(() => {
     return subtitleData.value !== null && subtitleData.value.entries.length > 0
+  })
+
+  const activeChunk = computed(() => {
+    if (!subtitleData.value || activeChunkIndex.value >= subtitleData.value.entries.length) {
+      return null
+    }
+    return subtitleData.value.entries[activeChunkIndex.value]
   })
 
   // Actions
@@ -159,6 +167,27 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     return `subtitle-${maxId + 1}`
   }
 
+  // Active chunk management
+  function setActiveChunkIndex(index: number) {
+    if (subtitleData.value && index >= 0 && index < subtitleData.value.entries.length) {
+      activeChunkIndex.value = index
+    }
+  }
+
+  function setActiveChunkById(chunkId: string) {
+    if (subtitleData.value) {
+      const index = subtitleData.value.entries.findIndex(entry => entry.id === chunkId)
+      if (index !== -1) {
+        activeChunkIndex.value = index
+      }
+    }
+  }
+
+  function getChunkIndexById(chunkId: string): number {
+    if (!subtitleData.value) return -1
+    return subtitleData.value.entries.findIndex(entry => entry.id === chunkId)
+  }
+
   return {
     // State
     subtitleData,
@@ -167,12 +196,14 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     isPlaying,
     isEditing,
     editingEntry,
+    activeChunkIndex,
 
     // Getters
     currentSubtitle,
     totalDuration,
     subtitleCount,
     hasSubtitles,
+    activeChunk,
 
     // Actions
     setSubtitleText,
@@ -194,5 +225,10 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     addEntry,
     removeEntry,
     generateNewId,
+
+    // Active chunk management
+    setActiveChunkIndex,
+    setActiveChunkById,
+    getChunkIndexById,
   }
 })
