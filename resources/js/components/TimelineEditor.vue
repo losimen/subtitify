@@ -392,26 +392,27 @@ onUnmounted(() => {
 
 <style scoped>
 .timeline-editor {
-  padding: 20px;
+  padding: 10px;
 }
 
 .timeline-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .timeline-header h3 {
   margin: 0;
   color: #007bff;
+  font-size: 16px;
 }
 
 .timeline-info {
   display: flex;
-  gap: 15px;
+  gap: 10px;
   color: #888;
-  font-size: 14px;
+  font-size: 12px;
   align-items: center;
 }
 
@@ -447,13 +448,13 @@ onUnmounted(() => {
   position: relative;
   background-color: #333;
   border-radius: 6px;
-  padding: 10px;
-  margin-bottom: 20px;
+  padding: 8px;
+  margin-bottom: 10px;
 }
 
 .timeline-track {
   position: relative;
-  height: 60px;
+  height: 40px;
   background-color: #444;
   border-radius: 4px;
   cursor: crosshair;
@@ -489,8 +490,8 @@ onUnmounted(() => {
 
 .timeline-segment {
   position: absolute;
-  top: 5px;
-  height: 50px;
+  top: 3px;
+  height: 34px;
   background-color: #007bff;
   border-radius: 4px;
   cursor: pointer;
@@ -560,7 +561,7 @@ onUnmounted(() => {
 }
 
 .segment-content {
-  padding: 5px 8px;
+  padding: 3px 6px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -569,22 +570,22 @@ onUnmounted(() => {
 }
 
 .segment-number {
-  font-size: 10px;
+  font-size: 8px;
   color: rgba(255, 255, 255, 0.8);
   font-weight: 600;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .segment-text {
-  font-size: 11px;
+  font-size: 9px;
   color: white;
   font-weight: 500;
-  line-height: 1.2;
-  margin-bottom: 2px;
+  line-height: 1.1;
+  margin-bottom: 1px;
 }
 
 .segment-timing {
-  font-size: 9px;
+  font-size: 7px;
   color: rgba(255, 255, 255, 0.7);
 }
 
