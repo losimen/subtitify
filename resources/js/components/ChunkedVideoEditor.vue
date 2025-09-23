@@ -220,12 +220,6 @@ onMounted(() => {
   // Load subtitles from session storage
   subtitleStore.loadFromSession()
 
-  // Check if we have subtitles, if not redirect to home
-  if (!subtitleStore.hasSubtitles) {
-    router.visit('/')
-    return
-  }
-
   // Get the file from sessionStorage
   const storedFile = sessionStorage.getItem('uploadedFile')
   if (storedFile) {
@@ -436,21 +430,21 @@ const goBack = () => {
 const handleExportClick = (event: Event) => {
   // Get the button element to check its disabled state
   const button = event.target as HTMLButtonElement
-  
+
   // If the button is disabled, don't execute the export
   if (button.disabled) {
     event.preventDefault()
     event.stopPropagation()
     return
   }
-  
+
   // Double-check the store state as well
   if (!subtitleStore.canExport || subtitleStore.hasValidationIssues) {
     event.preventDefault()
     event.stopPropagation()
     return
   }
-  
+
   exportSubtitles()
 }
 

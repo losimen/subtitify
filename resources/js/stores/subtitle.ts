@@ -6,7 +6,6 @@ import type { SubtitleData, SubtitleEntry } from '../types/subtitle'
 export const useSubtitleStore = defineStore('subtitle', () => {
   // State
   const subtitleData = ref<SubtitleData | null>(null)
-  const subtitleText = ref('')
   const currentTime = ref(0)
   const isPlaying = ref(false)
   const isEditing = ref(false)
@@ -54,22 +53,6 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   })
 
   // Actions
-  function setSubtitleText(text: string) {
-    subtitleText.value = text
-  }
-
-  function parseSubtitles() {
-    if (subtitleText.value.trim()) {
-      try {
-        subtitleData.value = SubtitleService.parseSubtitleText(subtitleText.value, 'user-input')
-      } catch (error) {
-        console.error('Error parsing subtitles:', error)
-        subtitleData.value = null
-      }
-    } else {
-      subtitleData.value = null
-    }
-  }
 
   function setSubtitleData(data: SubtitleData) {
     subtitleData.value = data
@@ -104,7 +87,6 @@ export const useSubtitleStore = defineStore('subtitle', () => {
 
   function clearSubtitles() {
     subtitleData.value = null
-    subtitleText.value = ''
     currentTime.value = 0
     isPlaying.value = false
   }
@@ -153,7 +135,13 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   }
 
   function addEntry(newEntry: SubtitleEntry) {
-    if (!subtitleData.value) return
+    // Initialize subtitle data if it doesn't exist
+    if (!subtitleData.value) {
+      subtitleData.value = {
+        entries: [],
+        totalDuration: videoDuration.value || 0
+      }
+    }
 
     subtitleData.value.entries.push(newEntry)
     // Sort entries by start time
@@ -308,7 +296,6 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   return {
     // State
     subtitleData,
-    subtitleText,
     currentTime,
     isPlaying,
     isEditing,
@@ -329,8 +316,6 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     canExport,
 
     // Actions
-    setSubtitleText,
-    parseSubtitles,
     setSubtitleData,
     setCurrentTime,
     setPlaying,

@@ -3,24 +3,11 @@
     <div class="input-container">
       <div class="file-section">
         <input type="file" ref="fileInput" @change="handleFileChange" accept=".mp4,video/mp4" class="file-input" />
-        <button @click="handleStart" class="start-button" :disabled="!selectedFile || !subtitleStore.hasSubtitles">
+        <button @click="handleStart" class="start-button" :disabled="!selectedFile">
           Start
         </button>
       </div>
 
-      <div class="subtitle-section">
-        <h3>Subtitle Text</h3>
-        <textarea v-model="subtitleStore.subtitleText" @input="handleSubtitleTextChange" placeholder="Paste your subtitle text here in format:
-[00:00-00:04]
-Text content here
-
-[00:05-00:08]
-More text content" class="subtitle-textarea"></textarea>
-        <div v-if="subtitleStore.hasSubtitles" class="subtitle-info">
-          <p>Parsed {{ subtitleStore.subtitleCount }} subtitle entries</p>
-          <p>Total duration: {{ formatDuration(subtitleStore.totalDuration) }}</p>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -28,14 +15,9 @@ More text content" class="subtitle-textarea"></textarea>
 <script setup lang="ts">
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
-import { useSubtitleStore } from '../stores/subtitle'
-import { SubtitleService } from '../services/subtitle.service'
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
-
-// Use the subtitle store
-const subtitleStore = useSubtitleStore()
 
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -44,17 +26,9 @@ const handleFileChange = (event: Event) => {
   }
 }
 
-const handleSubtitleTextChange = () => {
-  subtitleStore.setSubtitleText(subtitleStore.subtitleText)
-  subtitleStore.parseSubtitles()
-}
-
-const formatDuration = (seconds: number): string => {
-  return SubtitleService.secondsToTimeString(seconds)
-}
 
 const handleStart = async () => {
-  if (selectedFile.value && subtitleStore.hasSubtitles) {
+  if (selectedFile.value) {
     try {
       // Convert file to base64 for persistent storage
       const base64Data = await fileToBase64(selectedFile.value)
@@ -67,9 +41,6 @@ const handleStart = async () => {
         type: selectedFile.value.type
       }
       sessionStorage.setItem('uploadedFile', JSON.stringify(fileData))
-
-      // Save subtitles to store and session
-      subtitleStore.saveToSession()
 
       // Navigate to the subtitle component
       router.visit('/subtitle')
@@ -124,56 +95,6 @@ const fileToBase64 = (file: File): Promise<string> => {
   gap: 20px;
 }
 
-.subtitle-section {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.subtitle-section h3 {
-  color: white;
-  margin: 0;
-  text-align: center;
-  font-size: 18px;
-}
-
-.subtitle-textarea {
-  width: 100%;
-  min-height: 200px;
-  padding: 15px;
-  background-color: #333;
-  color: white;
-  border: 2px solid #555;
-  border-radius: 8px;
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  resize: vertical;
-  transition: all 0.3s ease;
-}
-
-.subtitle-textarea:focus {
-  outline: none;
-  border-color: #007bff;
-  background-color: #444;
-}
-
-.subtitle-textarea::placeholder {
-  color: #999;
-}
-
-.subtitle-info {
-  background-color: #222;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #444;
-}
-
-.subtitle-info p {
-  color: #ccc;
-  margin: 5px 0;
-  font-size: 14px;
-}
 
 .file-input {
   padding: 12px 20px;

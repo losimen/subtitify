@@ -20,7 +20,7 @@
         <button @click="goBack" class="back-button">
           ← Back to Upload
         </button>
-        <button @click="editSubtitles" class="edit-button" v-if="subtitleStore.hasSubtitles">
+        <button @click="editSubtitles" class="edit-button">
           ✏️ Edit Subtitles
         </button>
       </div>
