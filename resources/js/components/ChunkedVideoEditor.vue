@@ -257,24 +257,25 @@ const formatDuration = (seconds: number): string => {
 
 <style scoped>
 .chunked-video-editor {
-  min-height: 100vh;
+  height: 100vh;
   background-color: black;
   color: white;
-  padding: 20px;
-  padding-bottom: 300px; /* Space for fixed timeline editor */
+  padding: 10px;
+  padding-bottom: 200px; /* Reduced space for fixed timeline editor */
+  overflow: hidden;
 }
 
 .editor-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
   border-bottom: 2px solid #333;
 }
 
 .editor-header h2 {
-  font-size: 28px;
+  font-size: 20px;
   margin: 0;
 }
 
@@ -284,11 +285,12 @@ const formatDuration = (seconds: number): string => {
 }
 
 .add-button, .back-button {
-  padding: 10px 20px;
+  padding: 6px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 12px;
   transition: all 0.3s;
 }
 
@@ -314,30 +316,30 @@ const formatDuration = (seconds: number): string => {
 
 .editor-content {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
+  grid-template-columns: 250px 1fr;
+  gap: 15px;
+  margin-bottom: 10px;
+  height: calc(100vh - 200px);
 }
 
 .chunk-navigation {
   background-color: #222;
-  border-radius: 8px;
-  padding: 15px;
-  max-height: 600px;
+  border-radius: 6px;
+  padding: 10px;
   overflow-y: auto;
 }
 
 .chunk-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .chunk-nav-item {
-  padding: 12px;
+  padding: 8px;
   background-color: #333;
-  border: 2px solid #444;
-  border-radius: 6px;
+  border: 1px solid #444;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -372,28 +374,28 @@ const formatDuration = (seconds: number): string => {
 }
 
 .chunk-number {
-  font-size: 14px;
+  font-size: 12px;
   color: #007bff;
   font-weight: 600;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .chunk-timing {
-  font-size: 12px;
+  font-size: 10px;
   color: #888;
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .chunk-text-preview {
-  font-size: 13px;
-  line-height: 1.3;
+  font-size: 11px;
+  line-height: 1.2;
   color: #ccc;
 }
 
 .video-player-area {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 
 .video-container {
@@ -442,20 +444,21 @@ const formatDuration = (seconds: number): string => {
 .video-controls {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 15px;
+  gap: 10px;
+  padding: 8px;
   background-color: #222;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .play-chunk-btn, .play-pause-btn {
-  padding: 10px 15px;
+  padding: 6px 10px;
   background-color: #007bff;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 12px;
   transition: background-color 0.3s;
 }
 
@@ -476,25 +479,26 @@ const formatDuration = (seconds: number): string => {
 
 .chunk-info {
   background-color: #222;
-  padding: 15px;
-  border-radius: 8px;
+  padding: 8px;
+  border-radius: 6px;
 }
 
 .chunk-info h3 {
-  margin: 0 0 15px 0;
+  margin: 0 0 8px 0;
   color: #007bff;
+  font-size: 14px;
 }
 
 .chunk-details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .detail-item {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .detail-item label {
@@ -514,7 +518,7 @@ const formatDuration = (seconds: number): string => {
   background-color: #222;
   border-top: 2px solid #333;
   z-index: 1000;
-  max-height: 50vh;
+  height: 180px;
   overflow-y: auto;
 }
 
@@ -555,11 +559,11 @@ const formatDuration = (seconds: number): string => {
   }
 
   .chunked-video-editor {
-    padding-bottom: 400px; /* More space for mobile timeline */
+    padding-bottom: 250px; /* Reduced space for mobile timeline */
   }
-
+  
   .timeline-editor-container {
-    max-height: 60vh; /* More height on mobile */
+    height: 200px; /* Fixed height on mobile */
   }
 }
 </style>
