@@ -111,7 +111,18 @@
           <!-- Text Editing Section -->
           <div class="chunk-text-editing">
             <div class="text-editing-header">
-              <h4>Edit Chunk Text</h4>
+              <div class="header-with-button">
+                <h4>Edit Chunk Text</h4>
+                <button 
+                  @click="generateCreativeText" 
+                  class="robot-button"
+                  :disabled="!activeChunk || isGeneratingText"
+                  :title="isGeneratingText ? 'Generating...' : 'Generate creative text'"
+                >
+                  <span v-if="isGeneratingText" class="loading-spinner">⏳</span>
+                  <span v-else>🤖</span>
+                </button>
+              </div>
               <div class="styling-controls">
                 <div class="styling-group">
                   <label>Size</label>
@@ -208,6 +219,9 @@ const textStyling = reactive({
   color: 'white',
   position: 'bottom'
 })
+
+// Creative text generation state
+const isGeneratingText = ref<boolean>(false)
 
 // Computed properties
 const currentSubtitle = computed(() => subtitleStore.currentSubtitle)
@@ -335,6 +349,70 @@ const resetTextChanges = () => {
     textStyling.size = activeChunk.value.styling.size
     textStyling.color = activeChunk.value.styling.color
     textStyling.position = activeChunk.value.styling.position
+  }
+}
+
+const generateCreativeText = async () => {
+  if (!activeChunk.value || !videoPlayer.value) {
+    alert('Please select a chunk and ensure video is loaded')
+    return
+  }
+
+  try {
+    isGeneratingText.value = true
+
+    // Get video file from session storage
+    const storedFile = sessionStorage.getItem('uploadedFile')
+    if (!storedFile) {
+      alert('No video file found. Please upload a video first.')
+      return
+    }
+
+    const fileData = JSON.parse(storedFile)
+    
+    // Convert base64 to blob for file upload
+    const response = await fetch(fileData.url)
+    const blob = await response.blob()
+    const file = new File([blob], fileData.name, { type: fileData.type })
+
+    // Create form data for API request
+    const formData = new FormData()
+    formData.append('video', file)
+    formData.append('startTime', activeChunk.value.startTime.toString())
+    formData.append('endTime', activeChunk.value.endTime.toString())
+    formData.append('textTheme', 'contextual') // Default to contextual, could be made configurable
+    formData.append('style', 'professional') // Default style, could be made configurable
+    formData.append('context', '') // Empty context for now
+
+    // Make API request
+    const apiResponse = await fetch('/api/creativity/generate', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+      }
+    })
+
+    if (!apiResponse.ok) {
+      throw new Error(`API request failed: ${apiResponse.status}`)
+    }
+
+    const result = await apiResponse.json()
+
+    if (result.success) {
+      // Update the editing text with generated text
+      editingText.value = result.text
+      hasTextChanges.value = true
+      subtitleStore.setHasTextChanges(true)
+    } else {
+      throw new Error(result.error || 'Failed to generate creative text')
+    }
+
+  } catch (error) {
+    console.error('Error generating creative text:', error)
+    alert('Failed to generate creative text: ' + error.message)
+  } finally {
+    isGeneratingText.value = false
   }
 }
 
@@ -1135,6 +1213,68 @@ const formatDuration = (seconds: number): string => {
 
   .text-editor {
     min-height: 100px;
+  }
+}
+
+/* Robot button styles */
+.header-with-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.robot-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  width: 50px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  font-size: 18px;
+}
+
+.robot-button:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.robot-button:active:not(:disabled) {
+  transform: translateY(0) scale(0.95);
+}
+
+.robot-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .robot-button {
+    width: 44px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .header-with-button {
+    gap: 8px;
   }
 }
 </style>
