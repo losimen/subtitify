@@ -70,21 +70,48 @@
           </div>
         </div>
 
-        <!-- Chunk Info -->
-        <div class="chunk-info">
-          <h3>Chunk {{ currentChunkIndex + 1 }} of {{ subtitleStore.subtitleCount }}</h3>
-          <div class="chunk-details">
-            <div class="detail-item">
-              <label>Start Time:</label>
-              <span>{{ currentSubtitle?.startTimeFormatted || '00:00' }}</span>
+        <!-- Chunk Info and Editing -->
+        <div class="chunk-info-editing">
+          <!-- Chunk Info Section (1/3) -->
+          <div class="chunk-info">
+            <h3>Chunk {{ currentChunkIndex + 1 }} of {{ subtitleStore.subtitleCount }}</h3>
+            <div class="chunk-details">
+              <div class="detail-item">
+                <label>Start Time:</label>
+                <span>{{ currentSubtitle?.startTimeFormatted || '00:00' }}</span>
+              </div>
+              <div class="detail-item">
+                <label>End Time:</label>
+                <span>{{ currentSubtitle?.endTimeFormatted || '00:00' }}</span>
+              </div>
+              <div class="detail-item">
+                <label>Duration:</label>
+                <span>{{ currentSubtitle ? formatDuration(currentSubtitle.endTime - currentSubtitle.startTime) : '00:00' }}</span>
+              </div>
             </div>
-            <div class="detail-item">
-              <label>End Time:</label>
-              <span>{{ currentSubtitle?.endTimeFormatted || '00:00' }}</span>
-            </div>
-            <div class="detail-item">
-              <label>Duration:</label>
-              <span>{{ currentSubtitle ? formatDuration(currentSubtitle.endTime - currentSubtitle.startTime) : '00:00' }}</span>
+          </div>
+
+          <!-- Text Editing Section (70%) -->
+          <div class="chunk-text-editing">
+            <h4>Edit Chunk Text</h4>
+            <div class="text-editor-container">
+              <textarea
+                v-model="editingText"
+                @input="onTextChange"
+                @blur="saveTextChanges"
+                class="text-editor"
+                placeholder="Enter chunk text..."
+                rows="4"
+              ></textarea>
+              <div class="text-editor-actions">
+                <button @click="saveTextChanges" class="save-text-btn" :disabled="!hasTextChanges">
+                  Save Changes
+                </button>
+                <button @click="resetTextChanges" class="reset-text-btn" :disabled="!hasTextChanges">
+                  Reset
+                </button>
+                <span v-if="hasTextChanges" class="unsaved-indicator">● Unsaved changes</span>
+              </div>
             </div>
           </div>
         </div>
@@ -116,6 +143,11 @@ import type { SubtitleEntry } from '../types/subtitle'
 const subtitleStore = useSubtitleStore()
 const videoPlayer = ref<HTMLVideoElement | null>(null)
 const videoUrl = ref<string>('')
+
+// Text editing state
+const editingText = ref<string>('')
+const originalText = ref<string>('')
+const hasTextChanges = ref<boolean>(false)
 
 // Computed properties
 const currentSubtitle = computed(() => subtitleStore.activeChunk)
@@ -151,14 +183,62 @@ onMounted(() => {
   } else {
     router.visit('/')
   }
+
+  // Initialize editing text
+  updateEditingText()
 })
 
-// Watch for chunk changes to update video position
+// Watch for chunk changes to update video position and text
 watch(() => subtitleStore.activeChunkIndex, (newIndex) => {
   if (currentSubtitle.value && videoPlayer.value) {
     videoPlayer.value.currentTime = currentSubtitle.value.startTime
   }
+  // Update editing text when chunk changes
+  updateEditingText()
 })
+
+// Watch for current subtitle changes to update editing text
+watch(() => currentSubtitle.value, () => {
+  updateEditingText()
+})
+
+// Text editing functions
+const updateEditingText = () => {
+  if (currentSubtitle.value) {
+    editingText.value = currentSubtitle.value.text
+    originalText.value = currentSubtitle.value.text
+    hasTextChanges.value = false
+  } else {
+    editingText.value = ''
+    originalText.value = ''
+    hasTextChanges.value = false
+  }
+}
+
+const onTextChange = () => {
+  hasTextChanges.value = editingText.value !== originalText.value
+}
+
+const saveTextChanges = () => {
+  if (!currentSubtitle.value || !hasTextChanges.value) return
+
+  const updatedEntry: SubtitleEntry = {
+    ...currentSubtitle.value,
+    text: editingText.value.trim()
+  }
+
+  subtitleStore.updateEntry(updatedEntry)
+  subtitleStore.saveToSession()
+
+  // Update original text to reflect saved changes
+  originalText.value = editingText.value
+  hasTextChanges.value = false
+}
+
+const resetTextChanges = () => {
+  editingText.value = originalText.value
+  hasTextChanges.value = false
+}
 
 const selectChunk = (index: number) => {
   subtitleStore.setActiveChunkIndex(index)
@@ -257,11 +337,10 @@ const formatDuration = (seconds: number): string => {
 
 <style scoped>
 .chunked-video-editor {
-  height: 100vh;
+  min-height: 100vh;
   background-color: black;
   color: white;
   padding: 10px;
-  padding-bottom: 200px; /* Reduced space for fixed timeline editor */
   overflow: hidden;
 }
 
@@ -269,13 +348,13 @@ const formatDuration = (seconds: number): string => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 2px solid #333;
 }
 
 .editor-header h2 {
-  font-size: 20px;
+  font-size: 18px;
   margin: 0;
 }
 
@@ -285,12 +364,12 @@ const formatDuration = (seconds: number): string => {
 }
 
 .add-button, .back-button {
-  padding: 6px 12px;
+  padding: 5px 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   transition: all 0.3s;
 }
 
@@ -316,27 +395,27 @@ const formatDuration = (seconds: number): string => {
 
 .editor-content {
   display: grid;
-  grid-template-columns: 250px 1fr;
-  gap: 15px;
-  margin-bottom: 10px;
+  grid-template-columns: 200px 1fr;
+  gap: 10px;
+  margin-bottom: 0px;
   height: calc(100vh - 200px);
 }
 
 .chunk-navigation {
   background-color: #222;
   border-radius: 6px;
-  padding: 10px;
+  padding: 8px;
   overflow-y: auto;
 }
 
 .chunk-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .chunk-nav-item {
-  padding: 8px;
+  padding: 6px;
   background-color: #333;
   border: 1px solid #444;
   border-radius: 4px;
@@ -374,28 +453,29 @@ const formatDuration = (seconds: number): string => {
 }
 
 .chunk-number {
-  font-size: 12px;
+  font-size: 11px;
   color: #007bff;
   font-weight: 600;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .chunk-timing {
-  font-size: 10px;
+  font-size: 9px;
   color: #888;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .chunk-text-preview {
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: 10px;
+  line-height: 1.1;
   color: #ccc;
 }
 
 .video-player-area {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  flex: 1;
 }
 
 .video-container {
@@ -403,12 +483,16 @@ const formatDuration = (seconds: number): string => {
   background-color: #000;
   border-radius: 8px;
   overflow: hidden;
+  height: auto;
+  min-height: 200px;
+  max-height: 450px;
 }
 
 .video-player {
   width: 100%;
   height: auto;
   max-height: 400px;
+  object-fit: contain;
 }
 
 .subtitle-display {
@@ -477,28 +561,38 @@ const formatDuration = (seconds: number): string => {
   color: #888;
 }
 
+.chunk-info-editing {
+  display: flex;
+  gap: 10px;
+  height: auto;
+  max-height: 100px;
+}
+
 .chunk-info {
   background-color: #222;
-  padding: 8px;
+  padding: 6px;
   border-radius: 6px;
+  flex: 0 0 25%; /* Reduced from 30% to 25% */
+  min-width: 0;
+  max-height: 100px; /* Reduced height */
 }
 
 .chunk-info h3 {
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
   color: #007bff;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .chunk-details {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .detail-item {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .detail-item label {
@@ -510,16 +604,104 @@ const formatDuration = (seconds: number): string => {
   font-weight: 600;
 }
 
+.chunk-text-editing {
+  background-color: #222;
+  padding: 6px;
+  border-radius: 6px;
+  flex: 1; /* Takes remaining 75% of space */
+  display: flex;
+  flex-direction: column;
+  max-height: 100px; /* Reduced height */
+}
+
+.chunk-text-editing h4 {
+  margin: 0 0 4px 0;
+  color: #007bff;
+  font-size: 12px;
+}
+
+.text-editor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.text-editor {
+  flex: 1;
+  background-color: #333;
+  color: white;
+  border: 2px solid #555;
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 40px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.text-editor:focus {
+  border-color: #007bff;
+}
+
+.text-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.save-text-btn, .reset-text-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
+  transition: all 0.3s;
+}
+
+.save-text-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.save-text-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.save-text-btn:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.reset-text-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.reset-text-btn:hover:not(:disabled) {
+  background-color: #5a6268;
+}
+
+.reset-text-btn:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.unsaved-indicator {
+  color: #ffc107;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .timeline-editor-container {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   background-color: #222;
   border-top: 2px solid #333;
-  z-index: 1000;
-  height: 180px;
+  height: 120px;
   overflow-y: auto;
+  margin-top: 0px;
 }
 
 .editor-footer {
@@ -558,8 +740,21 @@ const formatDuration = (seconds: number): string => {
     flex-wrap: wrap;
   }
 
-  .chunked-video-editor {
-    padding-bottom: 250px; /* Reduced space for mobile timeline */
+  .chunk-info-editing {
+  }
+
+  .chunk-info {
+    flex: none;
+    height: auto;
+  }
+
+  .chunk-text-editing {
+    flex: none;
+    height: 200px;
+  }
+
+  .text-editor {
+    min-height: 120px;
   }
 
   .timeline-editor-container {
