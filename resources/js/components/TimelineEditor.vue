@@ -16,7 +16,12 @@
     </div>
 
     <div class="timeline-container" ref="timelineContainer">
-      <div class="timeline-track" ref="timelineTrack" @click="handleTimelineClick">
+      <div 
+        class="timeline-track" 
+        :class="{ 'blocked-extension': isExtensionBlocked }"
+        ref="timelineTrack" 
+        @click="handleTimelineClick"
+      >
         <!-- Time markers -->
         <div class="time-markers">
           <div
@@ -79,6 +84,33 @@
         ></div>
       </div>
     </div>
+
+    <!-- Extension Blocked Notification -->
+    <div 
+      v-if="isExtensionBlocked" 
+      class="extension-blocked-notification"
+      :class="{
+        'blocked-intersection': blockedExtensionReason === 'intersection',
+        'blocked-boundary': blockedExtensionReason === 'boundary'
+      }"
+    >
+      <div class="notification-content">
+        <div class="notification-icon">
+          <span v-if="blockedExtensionReason === 'intersection'">⚠️</span>
+          <span v-else-if="blockedExtensionReason === 'boundary'">🚫</span>
+        </div>
+        <div class="notification-text">
+          <div class="notification-title">
+            {{ blockedExtensionReason === 'intersection' ? 'Segment Overlap' : 'Boundary Reached' }}
+          </div>
+          <div class="notification-message">
+            {{ blockedExtensionReason === 'intersection' 
+              ? 'Cannot extend: would overlap with another segment' 
+              : 'Cannot extend: reached video boundary' }}
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -109,6 +141,8 @@ const dragStartX = ref(0)
 const dragStartTime = ref(0)
 const resizeHandle = ref<'left' | 'right' | null>(null)
 const resizingSegment = ref<SubtitleEntry | null>(null)
+const isExtensionBlocked = ref(false)
+const blockedExtensionReason = ref<'intersection' | 'boundary' | null>(null)
 
 // Computed
 const segments = computed(() => subtitleStore.subtitleData?.entries || [])
@@ -193,10 +227,24 @@ const handleResize = (event: MouseEvent) => {
 
   if (resizeHandle.value === 'left') {
     const newStartTime = Math.min(newTime, resizingSegment.value.endTime - 0.5) // Minimum 0.5s duration
-    updateSegmentTime(resizingSegment.value, newStartTime, resizingSegment.value.endTime)
+    const validation = validateResizeExtension(resizingSegment.value, newStartTime, resizingSegment.value.endTime, 'left')
+    
+    if (validation.isValid) {
+      updateSegmentTime(resizingSegment.value, newStartTime, resizingSegment.value.endTime)
+    } else {
+      // Show blocked extension animation
+      showBlockedExtensionAnimation(validation.reason!)
+    }
   } else {
     const newEndTime = Math.max(newTime, resizingSegment.value.startTime + 0.5) // Minimum 0.5s duration
-    updateSegmentTime(resizingSegment.value, resizingSegment.value.startTime, newEndTime)
+    const validation = validateResizeExtension(resizingSegment.value, resizingSegment.value.startTime, newEndTime, 'right')
+    
+    if (validation.isValid) {
+      updateSegmentTime(resizingSegment.value, resizingSegment.value.startTime, newEndTime)
+    } else {
+      // Show blocked extension animation
+      showBlockedExtensionAnimation(validation.reason!)
+    }
   }
 }
 
@@ -343,6 +391,45 @@ const hasTimelineExceedingChunks = () => {
     const errors = validation.errors[chunkId] || []
     return errors.some(error => error.includes('video is only') || error.includes('exceeds video'))
   })
+}
+
+// Intersection detection methods
+const checkSegmentIntersection = (segment: SubtitleEntry, newStartTime: number, newEndTime: number) => {
+  return segments.value.some(otherSegment => {
+    if (otherSegment.id === segment.id) return false
+    
+    // Check if the new time range overlaps with any other segment
+    return (newStartTime < otherSegment.endTime && newEndTime > otherSegment.startTime)
+  })
+}
+
+const checkBoundaryViolation = (newStartTime: number, newEndTime: number) => {
+  return newStartTime < 0 || newEndTime > totalDuration.value
+}
+
+const validateResizeExtension = (segment: SubtitleEntry, newStartTime: number, newEndTime: number, handle: 'left' | 'right') => {
+  // Check boundary violations first
+  if (checkBoundaryViolation(newStartTime, newEndTime)) {
+    return { isValid: false, reason: 'boundary' }
+  }
+  
+  // Check for intersections with other segments
+  if (checkSegmentIntersection(segment, newStartTime, newEndTime)) {
+    return { isValid: false, reason: 'intersection' }
+  }
+  
+  return { isValid: true, reason: null }
+}
+
+const showBlockedExtensionAnimation = (reason: 'intersection' | 'boundary') => {
+  isExtensionBlocked.value = true
+  blockedExtensionReason.value = reason
+  
+  // Hide animation after 1.5 seconds
+  setTimeout(() => {
+    isExtensionBlocked.value = false
+    blockedExtensionReason.value = null
+  }, 1500)
 }
 
 // Note: Removed automatic time-based selection
@@ -774,6 +861,120 @@ onUnmounted(() => {
   background-color: #218838;
 }
 
+/* Extension Blocked Notification Styles */
+.extension-blocked-notification {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  pointer-events: none;
+  animation: blockedExtensionSlideIn 0.3s ease-out;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border: 2px solid;
+  min-width: 280px;
+}
+
+.blocked-intersection .notification-content {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.blocked-boundary .notification-content {
+  border-color: #ffa726;
+  background: rgba(255, 167, 38, 0.1);
+}
+
+.notification-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.notification-text {
+  flex: 1;
+}
+
+.notification-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: white;
+}
+
+.blocked-intersection .notification-title {
+  color: #ff6b6b;
+}
+
+.blocked-boundary .notification-title {
+  color: #ffa726;
+}
+
+.notification-message {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+}
+
+/* Animation for blocked extension */
+@keyframes blockedExtensionSlideIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8) translateY(-20px);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) translateY(0);
+  }
+}
+
+@keyframes blockedExtensionSlideOut {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8) translateY(-20px);
+  }
+}
+
+/* Add shake animation to timeline when extension is blocked */
+.timeline-track.blocked-extension {
+  animation: timelineShake 0.5s ease-in-out;
+}
+
+@keyframes timelineShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+/* Enhanced resize handle feedback */
+.resize-handle.blocked {
+  background-color: rgba(255, 107, 107, 0.6) !important;
+  animation: resizeHandlePulse 0.3s ease-in-out;
+}
+
+@keyframes resizeHandlePulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
 @media (max-width: 768px) {
   .detail-grid {
     grid-template-columns: 1fr;
@@ -781,6 +982,19 @@ onUnmounted(() => {
 
   .segment-actions {
     flex-direction: column;
+  }
+
+  .notification-content {
+    min-width: 240px;
+    padding: 12px 16px;
+  }
+
+  .notification-title {
+    font-size: 14px;
+  }
+
+  .notification-message {
+    font-size: 12px;
   }
 }
 </style>
