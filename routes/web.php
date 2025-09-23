@@ -4,8 +4,12 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome');
+    return Inertia::render('CreativityInput');
 })->name('home');
+
+Route::get('/subtitle', function () {
+    return Inertia::render('CreativitySubtitle');
+})->name('subtitle');
 
 Route::get('dashboard', function () {
     return Inertia::render('Dashboard');

@@ -170,3 +170,16 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Subtitle App Global Styles */
+.subtitle-app {
+    background-color: black;
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.subtitle-app * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
