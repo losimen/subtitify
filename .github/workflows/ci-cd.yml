@@ -103,12 +103,98 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Deploy to production
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+        extensions: mbstring, xml, ctype, iconv, intl, dom, filter, gd, iconv, json, mbstring, phar, posix, session, simplexml, tokenizer, xml, xmlreader, xmlwriter, zip, bcmath, exif, pcntl
+
+    - name: Install dependencies
       run: |
-        echo "🚀 Deploying to production..."
-        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-        echo "Deployment would happen here (e.g., update Kubernetes, Docker Swarm, etc.)"
-        # Add your deployment commands here
-        # For example:
-        # - kubectl set image deployment/subtitify subtitify=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        # - docker service update --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest subtitify
+        composer install --no-dev --optimize-autoloader --no-interaction
+        npm ci
+
+    - name: Build frontend assets
+      run: npm run build
+
+    - name: Create deployment package
+      run: |
+        tar -czf subtitify-deploy.tar.gz \
+          --exclude='.git' \
+          --exclude='node_modules' \
+          --exclude='tests' \
+          --exclude='.github' \
+          --exclude='storage/logs' \
+          --exclude='storage/framework/cache' \
+          --exclude='storage/framework/sessions' \
+          --exclude='storage/framework/views' \
+          .
+
+    - name: Deploy to custom server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          # Create backup of current deployment
+          if [ -d "/var/www/subtitify" ]; then
+            sudo cp -r /var/www/subtitify /var/www/subtitify-backup-$(date +%Y%m%d-%H%M%S)
+          fi
+          
+          # Create deployment directory
+          sudo mkdir -p /var/www/subtitify
+          sudo chown $USER:$USER /var/www/subtitify
+
+    - name: Upload files to server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        source: "subtitify-deploy.tar.gz"
+        target: "/var/www/subtitify/"
+
+    - name: Extract and setup on server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || 22 }}
+        script: |
+          cd /var/www/subtitify
+          
+          # Extract files
+          tar -xzf subtitify-deploy.tar.gz
+          rm subtitify-deploy.tar.gz
+          
+          # Install production dependencies
+          composer install --no-dev --optimize-autoloader --no-interaction
+          
+          # Set permissions
+          sudo chown -R www-data:www-data /var/www/subtitify
+          sudo chmod -R 755 /var/www/subtitify
+          sudo chmod -R 775 /var/www/subtitify/storage
+          sudo chmod -R 775 /var/www/subtitify/bootstrap/cache
+          
+          # Laravel optimizations
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          
+          # Restart web server
+          sudo systemctl reload apache2 || sudo systemctl reload nginx
+          
+          echo "🚀 Deployment completed successfully!"
