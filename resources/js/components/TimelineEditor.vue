@@ -16,7 +16,7 @@
     </div>
 
     <div class="timeline-container" ref="timelineContainer">
-      <div class="timeline-track" ref="timelineTrack">
+      <div class="timeline-track" ref="timelineTrack" @click="handleTimelineClick">
         <!-- Time markers -->
         <div class="time-markers">
           <div
@@ -45,7 +45,7 @@
           :style="getSegmentStyle(segment)"
           @mouseenter="hoveredSegmentId = segment.id"
           @mouseleave="hoveredSegmentId = null"
-          @click="selectSegment(segment)"
+          @click.stop="selectSegment(segment)"
         >
           <!-- Resize handles -->
           <div
@@ -108,6 +108,7 @@ const isPlayheadDragging = ref(false)
 const dragStartX = ref(0)
 const dragStartTime = ref(0)
 const resizeHandle = ref<'left' | 'right' | null>(null)
+const resizingSegment = ref<SubtitleEntry | null>(null)
 
 // Computed
 const segments = computed(() => subtitleStore.subtitleData?.entries || [])
@@ -151,40 +152,58 @@ const selectSegment = (segment: SubtitleEntry) => {
   editingSegmentId.value = null
 }
 
+const handleTimelineClick = (event: MouseEvent) => {
+  // Only handle clicks on empty space (not on segments or resize handles)
+  const target = event.target as HTMLElement
+  
+  // Check if click was on a segment or resize handle
+  if (target.closest('.timeline-segment') || target.closest('.resize-handle')) {
+    return // Let the segment handle the click
+  }
+  
+  // Click was on empty space - do nothing (don't change selection)
+  // This prevents accidental deselection when clicking on empty timeline areas
+}
+
 
 const startResize = (event: MouseEvent, segment: SubtitleEntry, handle: 'left' | 'right') => {
   isResizing.value = true
   resizeHandle.value = handle
+  resizingSegment.value = segment
   dragStartX.value = event.clientX
   dragStartTime.value = handle === 'left' ? segment.startTime : segment.endTime
-
+  
+  // Select the segment being resized
+  subtitleStore.setActiveChunkById(segment.id)
+  
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
-
+  
   event.preventDefault()
 }
 
 const handleResize = (event: MouseEvent) => {
-  if (!isResizing.value || !timelineTrack.value || !selectedSegment.value) return
-
+  if (!isResizing.value || !timelineTrack.value || !resizingSegment.value) return
+  
   const rect = timelineTrack.value.getBoundingClientRect()
   const deltaX = event.clientX - dragStartX.value
   const deltaTime = (deltaX / rect.width) * totalDuration.value
-
+  
   const newTime = Math.max(0, Math.min(totalDuration.value, dragStartTime.value + deltaTime))
-
+  
   if (resizeHandle.value === 'left') {
-    const newStartTime = Math.min(newTime, selectedSegment.value.endTime - 0.5) // Minimum 0.5s duration
-    updateSegmentTime(selectedSegment.value, newStartTime, selectedSegment.value.endTime)
+    const newStartTime = Math.min(newTime, resizingSegment.value.endTime - 0.5) // Minimum 0.5s duration
+    updateSegmentTime(resizingSegment.value, newStartTime, resizingSegment.value.endTime)
   } else {
-    const newEndTime = Math.max(newTime, selectedSegment.value.startTime + 0.5) // Minimum 0.5s duration
-    updateSegmentTime(selectedSegment.value, selectedSegment.value.startTime, newEndTime)
+    const newEndTime = Math.max(newTime, resizingSegment.value.startTime + 0.5) // Minimum 0.5s duration
+    updateSegmentTime(resizingSegment.value, resizingSegment.value.startTime, newEndTime)
   }
 }
 
 const stopResize = () => {
   isResizing.value = false
   resizeHandle.value = null
+  resizingSegment.value = null
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
 }
