@@ -6,7 +6,7 @@
       </div>
       <div class="header-actions">
         <button
-          @click="subtitleStore.canExport ? exportSubtitles() : null"
+          @click="handleExportClick"
           class="export-button"
           :disabled="!subtitleStore.canExport"
           :title="subtitleStore.hasValidationIssues ? 'Cannot export: Please fix validation issues first' : 'Export video with subtitles'"
@@ -151,7 +151,6 @@
                 <textarea
                   v-model="editingText"
                   @input="onTextChange"
-                  @blur="saveTextChanges"
                   class="text-editor"
                   placeholder="Enter chunk text..."
                   rows="2"
@@ -278,6 +277,7 @@ watch(() => currentSubtitle.value, () => {
   updateEditingText()
 })
 
+
 // Text editing functions
 const updateEditingText = () => {
   if (currentSubtitle.value) {
@@ -348,7 +348,6 @@ const onStylingChange = () => {
   hasTextChanges.value = true
   // Update global state
   subtitleStore.setHasTextChanges(true)
-  console.log('Text styling changed:', textStyling)
 }
 
 const selectChunk = (index: number) => {
@@ -382,8 +381,6 @@ const deleteChunk = (entryId: string, index: number) => {
 
     // Update editing text if we're editing the deleted chunk
     updateEditingText()
-
-    console.log(`Deleted chunk ${index + 1} with ID: ${entryId}`)
   }
 }
 
@@ -405,10 +402,8 @@ const playPause = () => {
 }
 
 const onVideoLoaded = () => {
-  console.log('Video loaded successfully')
   if (videoPlayer.value) {
     subtitleStore.setVideoDuration(videoPlayer.value.duration)
-    console.log('Video duration set to:', videoPlayer.value.duration, 'seconds')
   }
 }
 
@@ -438,6 +433,27 @@ const goBack = () => {
   router.visit('/subtitle')
 }
 
+const handleExportClick = (event: Event) => {
+  // Get the button element to check its disabled state
+  const button = event.target as HTMLButtonElement
+  
+  // If the button is disabled, don't execute the export
+  if (button.disabled) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  
+  // Double-check the store state as well
+  if (!subtitleStore.canExport || subtitleStore.hasValidationIssues) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  
+  exportSubtitles()
+}
+
 const exportSubtitles = async () => {
   // Prevent export if there are validation issues - double check
   if (!subtitleStore.canExport || subtitleStore.hasValidationIssues) {
@@ -446,6 +462,9 @@ const exportSubtitles = async () => {
   }
 
   try {
+    // Set exporting state
+    subtitleStore.setExporting(true)
+
     const storedFile = sessionStorage.getItem('uploadedFile')
     let fileData = null
 
@@ -466,7 +485,6 @@ const exportSubtitles = async () => {
     const exportButton = document.querySelector('.export-button')
     if (exportButton) {
       exportButton.textContent = '⏳ Processing...'
-      exportButton.disabled = true
     }
 
     const exportData = {
@@ -494,9 +512,6 @@ const exportSubtitles = async () => {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-
-      console.log('Export successful')
-      alert('Video with subtitles downloaded successfully!')
     } else {
       const errorData = await response.json()
       console.error('Export failed:', errorData)
@@ -506,11 +521,13 @@ const exportSubtitles = async () => {
     console.error('Export error:', error)
     alert('Export failed. Please try again.')
   } finally {
+    // Reset exporting state
+    subtitleStore.setExporting(false)
+
     // Reset button state
     const exportButton = document.querySelector('.export-button')
     if (exportButton) {
       exportButton.textContent = '📤 Export'
-      exportButton.disabled = false
     }
   }
 }

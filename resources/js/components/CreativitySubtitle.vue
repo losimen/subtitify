@@ -87,7 +87,6 @@ onMounted(() => {
 })
 
 const onVideoLoaded = () => {
-  console.log('Video loaded successfully')
   // You can add additional logic here when video is ready
 }
 

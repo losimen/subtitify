@@ -17,6 +17,7 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   // Global validation state
   const hasTimelineExceedingChunks = ref(false)
   const hasTextChanges = ref(false)
+  const isExporting = ref(false)
 
   // Getters
   const currentSubtitle = computed(() => {
@@ -49,7 +50,7 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   })
 
   const canExport = computed(() => {
-    return !hasValidationIssues.value
+    return !hasValidationIssues.value && !isExporting.value
   })
 
   // Actions
@@ -295,6 +296,10 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     hasTextChanges.value = hasChanges
   }
 
+  function setExporting(exporting: boolean) {
+    isExporting.value = exporting
+  }
+
   function resetValidationState() {
     hasTimelineExceedingChunks.value = false
     hasTextChanges.value = false
@@ -312,6 +317,7 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     videoDuration,
     hasTimelineExceedingChunks,
     hasTextChanges,
+    isExporting,
 
     // Getters
     currentSubtitle,
@@ -357,6 +363,7 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     // Global validation state management
     setHasTimelineExceedingChunks,
     setHasTextChanges,
+    setExporting,
     resetValidationState,
   }
 })

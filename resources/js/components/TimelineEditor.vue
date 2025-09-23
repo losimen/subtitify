@@ -1003,7 +1003,7 @@ onUnmounted(() => {
   height: 100%;
   background-color: #ff4444;
   cursor: ew-resize;
-  z-index: 10;
+  z-index: 9999;
 }
 
 .playhead::before {
