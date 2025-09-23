@@ -7,7 +7,7 @@ export interface SubtitleEntry {
   endTimeFormatted: string // e.g., "00:04"
   styling: {
     size: 'small' | 'medium' | 'large'
-    color: 'white' | 'black' | 'red'
+    color: 'white' | 'black' | 'red' | 'blue' | 'green' | 'yellow' | 'orange' | 'purple' | 'cyan' | 'magenta'
     position: 'top' | 'center' | 'bottom'
   }
 }

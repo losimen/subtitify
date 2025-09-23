@@ -100,6 +100,7 @@
               <h4>Edit Chunk Text</h4>
               <div class="styling-controls">
                 <div class="styling-group">
+                  <label>Size</label>
                   <select v-model="textStyling.size" @change="onStylingChange" class="styling-select">
                     <option value="small">Small</option>
                     <option value="medium">Medium</option>
@@ -107,17 +108,26 @@
                   </select>
                 </div>
                 <div class="styling-group">
+                  <label>Color</label>
                   <select v-model="textStyling.color" @change="onStylingChange" class="styling-select">
-                    <option value="white">White</option>
-                    <option value="black">Black</option>
-                    <option value="red">Red</option>
+                    <option value="white">⚪ White</option>
+                    <option value="black">⚫ Black</option>
+                    <option value="red">🔴 Red</option>
+                    <option value="blue">🔵 Blue</option>
+                    <option value="green">🟢 Green</option>
+                    <option value="yellow">🟡 Yellow</option>
+                    <option value="orange">🟠 Orange</option>
+                    <option value="purple">🟣 Purple</option>
+                    <option value="cyan">🔵 Cyan</option>
+                    <option value="magenta">🟣 Magenta</option>
                   </select>
                 </div>
                 <div class="styling-group">
+                  <label>Position</label>
                   <select v-model="textStyling.position" @change="onStylingChange" class="styling-select">
-                    <option value="top">Top</option>
-                    <option value="center">Center</option>
-                    <option value="bottom">Bottom</option>
+                    <option value="top">⬆️ Top</option>
+                    <option value="center">⬇️ Center</option>
+                    <option value="bottom">⬇️ Bottom</option>
                   </select>
                 </div>
               </div>
