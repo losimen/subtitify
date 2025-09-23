@@ -140,7 +140,7 @@
                   @blur="saveTextChanges"
                   class="text-editor"
                   placeholder="Enter chunk text..."
-                  rows="3"
+                  rows="2"
                 ></textarea>
                 <div class="text-editor-overlay">
                   <button @click="saveTextChanges" class="save-text-btn" :disabled="!hasTextChanges" title="Save Changes">
