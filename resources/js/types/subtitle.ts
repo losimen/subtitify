@@ -5,6 +5,11 @@ export interface SubtitleEntry {
   text: string
   startTimeFormatted: string // e.g., "00:00"
   endTimeFormatted: string // e.g., "00:04"
+  styling: {
+    size: 'small' | 'medium' | 'large'
+    color: 'white' | 'black' | 'red'
+    position: 'top' | 'center' | 'bottom'
+  }
 }
 
 export interface SubtitleData {

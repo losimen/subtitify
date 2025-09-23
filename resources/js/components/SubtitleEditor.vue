@@ -245,7 +245,12 @@ const addEntry = () => {
     endTime,
     text: newEntryForm.text.trim(),
     startTimeFormatted: newEntryForm.startTimeFormatted,
-    endTimeFormatted: newEntryForm.endTimeFormatted
+    endTimeFormatted: newEntryForm.endTimeFormatted,
+    styling: {
+      size: 'medium',
+      color: 'white',
+      position: 'bottom'
+    }
   }
 
   subtitleStore.addEntry(newEntry)

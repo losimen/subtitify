@@ -45,6 +45,11 @@ export class SubtitleService {
         text: textContent,
         startTimeFormatted: startTimeStr,
         endTimeFormatted: endTimeStr,
+        styling: {
+          size: 'medium',
+          color: 'white',
+          position: 'bottom'
+        }
       }
 
       entries.push(entry)

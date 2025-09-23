@@ -91,9 +91,34 @@
             </div>
           </div>
 
-          <!-- Text Editing Section (70%) -->
+          <!-- Text Editing Section -->
           <div class="chunk-text-editing">
-            <h4>Edit Chunk Text</h4>
+            <div class="text-editing-header">
+              <h4>Edit Chunk Text</h4>
+              <div class="styling-controls">
+                <div class="styling-group">
+                  <select v-model="textStyling.size" @change="onStylingChange" class="styling-select">
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                </div>
+                <div class="styling-group">
+                  <select v-model="textStyling.color" @change="onStylingChange" class="styling-select">
+                    <option value="white">White</option>
+                    <option value="black">Black</option>
+                    <option value="red">Red</option>
+                  </select>
+                </div>
+                <div class="styling-group">
+                  <select v-model="textStyling.position" @change="onStylingChange" class="styling-select">
+                    <option value="top">Top</option>
+                    <option value="center">Center</option>
+                    <option value="bottom">Bottom</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             <div class="text-editor-container">
               <div class="text-editor-wrapper">
                 <textarea
@@ -150,6 +175,13 @@ const videoUrl = ref<string>('')
 const editingText = ref<string>('')
 const originalText = ref<string>('')
 const hasTextChanges = ref<boolean>(false)
+
+// Text styling state
+const textStyling = reactive({
+  size: 'medium',
+  color: 'white',
+  position: 'bottom'
+})
 
 // Computed properties
 const currentSubtitle = computed(() => subtitleStore.activeChunk)
@@ -210,6 +242,11 @@ const updateEditingText = () => {
     editingText.value = currentSubtitle.value.text
     originalText.value = currentSubtitle.value.text
     hasTextChanges.value = false
+    
+    // Load styling from current subtitle entry
+    textStyling.size = currentSubtitle.value.styling.size
+    textStyling.color = currentSubtitle.value.styling.color
+    textStyling.position = currentSubtitle.value.styling.position
   } else {
     editingText.value = ''
     originalText.value = ''
@@ -226,7 +263,12 @@ const saveTextChanges = () => {
 
   const updatedEntry: SubtitleEntry = {
     ...currentSubtitle.value,
-    text: editingText.value.trim()
+    text: editingText.value.trim(),
+    styling: {
+      size: textStyling.size,
+      color: textStyling.color,
+      position: textStyling.position
+    }
   }
 
   subtitleStore.updateEntry(updatedEntry)
@@ -240,6 +282,19 @@ const saveTextChanges = () => {
 const resetTextChanges = () => {
   editingText.value = originalText.value
   hasTextChanges.value = false
+  
+  // Reset styling to original values
+  if (currentSubtitle.value) {
+    textStyling.size = currentSubtitle.value.styling.size
+    textStyling.color = currentSubtitle.value.styling.color
+    textStyling.position = currentSubtitle.value.styling.position
+  }
+}
+
+const onStylingChange = () => {
+  // Mark that there are changes when styling is modified
+  hasTextChanges.value = true
+  console.log('Text styling changed:', textStyling)
 }
 
 const selectChunk = (index: number) => {
@@ -609,14 +664,21 @@ const formatDuration = (seconds: number): string => {
   background-color: #222;
   padding: 6px;
   border-radius: 6px;
-  flex: 1; /* Takes remaining 75% of space */
+  flex: 1; /* Takes remaining space */
   display: flex;
   flex-direction: column;
   max-height: 100px; /* Reduced height */
 }
 
-.chunk-text-editing h4 {
-  margin: 0 0 4px 0;
+.text-editing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.text-editing-header h4 {
+  margin: 0;
   color: #007bff;
   font-size: 12px;
 }
@@ -717,6 +779,46 @@ const formatDuration = (seconds: number): string => {
   font-weight: 600;
 }
 
+.styling-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.styling-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+}
+
+.styling-group label {
+  color: #888;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.styling-select {
+  background-color: #333;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 10px;
+  outline: none;
+  transition: border-color 0.3s;
+  min-width: 60px;
+}
+
+.styling-select:focus {
+  border-color: #007bff;
+}
+
+.styling-select:hover {
+  border-color: #666;
+}
+
 .timeline-editor-container {
   background-color: #222;
   border-top: 2px solid #333;
@@ -760,6 +862,8 @@ const formatDuration = (seconds: number): string => {
   }
 
   .chunk-info-editing {
+    flex-direction: column;
+    gap: 8px;
   }
 
   .chunk-info {
@@ -770,6 +874,28 @@ const formatDuration = (seconds: number): string => {
   .chunk-text-editing {
     flex: none;
     height: 200px;
+  }
+
+  .text-editing-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .styling-controls {
+    flex-direction: row;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .styling-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .styling-group label {
+    font-size: 10px;
   }
 
   .text-editor {

@@ -301,7 +301,12 @@ const addNewSegment = () => {
     endTime: totalDuration.value * 0.2,   // End at 20% of video
     text: 'New subtitle text',
     startTimeFormatted: SubtitleService.secondsToTimeString(totalDuration.value * 0.1),
-    endTimeFormatted: SubtitleService.secondsToTimeString(totalDuration.value * 0.2)
+    endTimeFormatted: SubtitleService.secondsToTimeString(totalDuration.value * 0.2),
+    styling: {
+      size: 'medium',
+      color: 'white',
+      position: 'bottom'
+    }
   }
 
   subtitleStore.addEntry(newEntry)
