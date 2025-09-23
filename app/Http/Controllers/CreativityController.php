@@ -15,25 +15,43 @@ class CreativityController extends Controller
     public function generateCreativePhrase(Request $request): JsonResponse
     {
         try {
-            // Validate request
+            // Log incoming request data for debugging
+            Log::info('Creativity API Request', [
+                'has_video' => $request->hasFile('video'),
+                'startTime' => $request->input('startTime'),
+                'endTime' => $request->input('endTime'),
+                'textTheme' => $request->input('textTheme'),
+                'style' => $request->input('style'),
+                'context' => $request->input('context')
+            ]);
+
+            // Validate request (similar to VideoController)
             $request->validate([
-                'video' => 'required|file|mimes:mp4|max:102400', // 100MB max
+                'file' => 'required|array',
                 'startTime' => 'required|numeric|min:0',
-                'endTime' => 'required|numeric|min:0|gt:startTime',
+                'endTime' => 'required|numeric|min:0',
                 'textTheme' => 'required|string|in:contextual,cta',
                 'context' => 'nullable|string|max:500',
                 'style' => 'nullable|string|in:professional,casual,funny,inspirational,technical'
             ]);
 
-            $videoFile = $request->file('video');
+            $fileData = $request->input('file');
             $startTime = $request->input('startTime');
             $endTime = $request->input('endTime');
             $textTheme = $request->input('textTheme');
-            $context = $request->input('context', '');
+            $context = $request->input('context', '') ?? '';
             $style = $request->input('style', 'professional');
 
+            // Additional validation: endTime must be greater than startTime
+            if ($endTime <= $startTime) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'End time must be greater than start time'
+                ], 422);
+            }
+
             // Analyze video content at the specified time range
-            $videoAnalysis = $this->analyzeVideoContent($videoFile, $startTime, $endTime);
+            $videoAnalysis = $this->analyzeVideoContent($fileData, $startTime, $endTime);
 
             // Generate contextual text or CTA based on theme
             $generatedText = $this->generateContextualText($videoAnalysis, $textTheme, $context, $style);
@@ -70,23 +88,22 @@ class CreativityController extends Controller
     /**
      * Analyze video content at specified time range
      */
-    private function analyzeVideoContent($videoFile, float $startTime, float $endTime): array
+    private function analyzeVideoContent($fileData, float $startTime, float $endTime): array
     {
         try {
-            // Store video temporarily
-            $tempPath = $videoFile->store('temp', 'local');
-            $fullPath = storage_path('app/' . $tempPath);
+            // Handle file data similar to VideoController
+            $videoPath = $this->handleFileUpload($fileData);
 
             // Extract frame at middle of time range for analysis
             $middleTime = ($startTime + $endTime) / 2;
-            $framePath = $this->extractFrameAtTime($fullPath, $middleTime);
+            $framePath = $this->extractFrameAtTime($videoPath, $middleTime);
 
             // Analyze the frame (placeholder for now - could integrate with image analysis APIs)
             $analysis = $this->analyzeFrame($framePath);
 
             // Clean up temporary files
-            if (file_exists($fullPath)) {
-                unlink($fullPath);
+            if (file_exists($videoPath)) {
+                unlink($videoPath);
             }
             if (file_exists($framePath)) {
                 unlink($framePath);
@@ -105,6 +122,93 @@ class CreativityController extends Controller
                 'activity_level' => 'medium'
             ];
         }
+    }
+
+    /**
+     * Handle file upload similar to VideoController
+     */
+    private function handleFileUpload($fileData)
+    {
+        // Create temporary directory
+        $tempDir = storage_path('app/temp');
+        if (!file_exists($tempDir)) {
+            if (!mkdir($tempDir, 0755, true)) {
+                throw new \Exception('Failed to create temporary directory');
+            }
+        }
+
+        // Handle different file data formats
+        if (isset($fileData['url']) && str_starts_with($fileData['url'], 'data:')) {
+            // Handle base64 data URL
+            $data = $fileData['url'];
+            $parts = explode(',', $data, 2);
+            
+            if (count($parts) !== 2) {
+                throw new \Exception('Invalid data URL format');
+            }
+
+            $videoData = base64_decode($parts[1]);
+            if ($videoData === false) {
+                throw new \Exception('Failed to decode base64 video data');
+            }
+
+            // Determine file extension from MIME type
+            $mimeType = explode(';', explode(':', $parts[0])[1])[0];
+            $extension = $this->getExtensionFromMimeType($mimeType);
+
+            $filename = 'input_' . uniqid() . '.' . $extension;
+            $filePath = $tempDir . '/' . $filename;
+
+            if (file_put_contents($filePath, $videoData) === false) {
+                throw new \Exception('Failed to write video file to disk');
+            }
+
+        } elseif (isset($fileData['name']) && isset($fileData['content'])) {
+            // Handle file content
+            $extension = pathinfo($fileData['name'], PATHINFO_EXTENSION);
+            if (empty($extension)) {
+                $extension = 'mp4'; // Default extension
+            }
+
+            $filename = 'input_' . uniqid() . '.' . $extension;
+            $filePath = $tempDir . '/' . $filename;
+
+            $videoData = base64_decode($fileData['content']);
+            if ($videoData === false) {
+                throw new \Exception('Failed to decode base64 video content');
+            }
+
+            if (file_put_contents($filePath, $videoData) === false) {
+                throw new \Exception('Failed to write video file to disk');
+            }
+
+        } else {
+            throw new \Exception('Invalid file data format. Expected "url" or "name"/"content" fields.');
+        }
+
+        // Verify the file was created and has content
+        if (!file_exists($filePath) || filesize($filePath) === 0) {
+            throw new \Exception('Video file was not created properly');
+        }
+
+        return $filePath;
+    }
+
+    /**
+     * Get file extension from MIME type
+     */
+    private function getExtensionFromMimeType($mimeType)
+    {
+        $mimeToExt = [
+            'video/mp4' => 'mp4',
+            'video/avi' => 'avi',
+            'video/mov' => 'mov',
+            'video/wmv' => 'wmv',
+            'video/webm' => 'webm',
+            'video/mkv' => 'mkv'
+        ];
+
+        return $mimeToExt[$mimeType] ?? 'mp4';
     }
 
     /**

@@ -361,6 +361,12 @@ const generateCreativeText = async () => {
   try {
     isGeneratingText.value = true
 
+    // First test if API is working
+    console.log('Testing API connection...')
+    const testResponse = await fetch('/api/test')
+    const testData = await testResponse.json()
+    console.log('API test result:', testData)
+
     // Get video file from session storage
     const storedFile = sessionStorage.getItem('uploadedFile')
     if (!storedFile) {
@@ -369,32 +375,58 @@ const generateCreativeText = async () => {
     }
 
     const fileData = JSON.parse(storedFile)
+
+    // Create request data similar to exportSubtitles function
+    const requestData = {
+      file: fileData,
+      startTime: activeChunk.value.startTime,
+      endTime: activeChunk.value.endTime,
+      textTheme: 'contextual', // Default to contextual, could be made configurable
+      style: 'professional', // Default style, could be made configurable
+      context: '' // Empty context for now
+    }
+
+    // Debug: Log the request data being sent
+    console.log('Request data being sent:', requestData)
+
+    // Make API request using JSON like exportSubtitles
+    console.log('Making API request to /api/creativity/generate')
+    console.log('CSRF Token:', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'))
     
-    // Convert base64 to blob for file upload
-    const response = await fetch(fileData.url)
-    const blob = await response.blob()
-    const file = new File([blob], fileData.name, { type: fileData.type })
-
-    // Create form data for API request
-    const formData = new FormData()
-    formData.append('video', file)
-    formData.append('startTime', activeChunk.value.startTime.toString())
-    formData.append('endTime', activeChunk.value.endTime.toString())
-    formData.append('textTheme', 'contextual') // Default to contextual, could be made configurable
-    formData.append('style', 'professional') // Default style, could be made configurable
-    formData.append('context', '') // Empty context for now
-
-    // Make API request
     const apiResponse = await fetch('/api/creativity/generate', {
       method: 'POST',
-      body: formData,
       headers: {
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-      }
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(requestData)
     })
+    
+    console.log('API Response status:', apiResponse.status)
+    console.log('API Response headers:', Object.fromEntries(apiResponse.headers.entries()))
+
+    // Check if response is HTML (error page) instead of JSON
+    const contentType = apiResponse.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      const htmlText = await apiResponse.text()
+      console.error('Received HTML instead of JSON:', htmlText.substring(0, 200))
+      throw new Error(`Server returned HTML instead of JSON. Status: ${apiResponse.status}. This usually means the API route is not found.`)
+    }
 
     if (!apiResponse.ok) {
-      throw new Error(`API request failed: ${apiResponse.status}`)
+      const errorData = await apiResponse.json().catch(() => ({ error: 'Unknown error' }))
+      console.error('API Error Details:', errorData)
+      
+      // Handle validation errors specifically
+      if (apiResponse.status === 422 && errorData.errors) {
+        const validationErrors = Object.entries(errorData.errors)
+          .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+          .join('; ')
+        throw new Error(`Validation failed: ${validationErrors}`)
+      }
+      
+      throw new Error(`API request failed: ${apiResponse.status} - ${errorData.message || errorData.error || 'Unknown error'}`)
     }
 
     const result = await apiResponse.json()
