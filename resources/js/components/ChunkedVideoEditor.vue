@@ -399,8 +399,7 @@ const formatDuration = (seconds: number): string => {
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: 10px;
-  margin-bottom: 0px;
-  height: calc(100vh - 200px);
+  margin-bottom: 2px;
 }
 
 .chunk-navigation {
@@ -721,8 +720,6 @@ const formatDuration = (seconds: number): string => {
 .timeline-editor-container {
   background-color: #222;
   border-top: 2px solid #333;
-  height: 120px;
-  overflow-y: auto;
   margin-top: 0px;
 }
 
@@ -777,10 +774,6 @@ const formatDuration = (seconds: number): string => {
 
   .text-editor {
     min-height: 100px;
-  }
-
-  .timeline-editor-container {
-    height: 200px; /* Fixed height on mobile */
   }
 }
 </style>

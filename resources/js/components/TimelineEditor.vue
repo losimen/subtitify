@@ -35,7 +35,7 @@
           v-for="(segment, index) in segments"
           :key="segment.id"
           class="timeline-segment"
-          :class="{ 
+          :class="{
             'selected': selectedSegmentId === segment.id,
             'editing': editingSegmentId === segment.id,
             'hover': hoveredSegmentId === segment.id,
@@ -155,12 +155,12 @@ const selectSegment = (segment: SubtitleEntry) => {
 const handleTimelineClick = (event: MouseEvent) => {
   // Only handle clicks on empty space (not on segments or resize handles)
   const target = event.target as HTMLElement
-  
+
   // Check if click was on a segment or resize handle
   if (target.closest('.timeline-segment') || target.closest('.resize-handle')) {
     return // Let the segment handle the click
   }
-  
+
   // Click was on empty space - do nothing (don't change selection)
   // This prevents accidental deselection when clicking on empty timeline areas
 }
@@ -172,25 +172,25 @@ const startResize = (event: MouseEvent, segment: SubtitleEntry, handle: 'left' |
   resizingSegment.value = segment
   dragStartX.value = event.clientX
   dragStartTime.value = handle === 'left' ? segment.startTime : segment.endTime
-  
+
   // Select the segment being resized
   subtitleStore.setActiveChunkById(segment.id)
-  
+
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
-  
+
   event.preventDefault()
 }
 
 const handleResize = (event: MouseEvent) => {
   if (!isResizing.value || !timelineTrack.value || !resizingSegment.value) return
-  
+
   const rect = timelineTrack.value.getBoundingClientRect()
   const deltaX = event.clientX - dragStartX.value
   const deltaTime = (deltaX / rect.width) * totalDuration.value
-  
+
   const newTime = Math.max(0, Math.min(totalDuration.value, dragStartTime.value + deltaTime))
-  
+
   if (resizeHandle.value === 'left') {
     const newStartTime = Math.min(newTime, resizingSegment.value.endTime - 0.5) // Minimum 0.5s duration
     updateSegmentTime(resizingSegment.value, newStartTime, resizingSegment.value.endTime)
@@ -239,7 +239,7 @@ const updateSegmentTime = (segment: SubtitleEntry, startTime: number, endTime: n
     startTimeFormatted: SubtitleService.secondsToTimeString(startTime),
     endTimeFormatted: SubtitleService.secondsToTimeString(endTime)
   }
-  
+
   subtitleStore.updateEntry(updatedSegment)
   subtitleStore.saveToSession()
   // Mark this chunk as the last edited
@@ -268,7 +268,7 @@ const updateSegmentText = (segment: SubtitleEntry) => {
     ...segment,
     text: segment.text.trim()
   }
-  
+
   subtitleStore.updateEntry(updatedSegment)
   subtitleStore.saveToSession()
   // Mark this chunk as the last edited
@@ -415,7 +415,6 @@ onUnmounted(() => {
   position: relative;
   background-color: #333;
   border-radius: 6px;
-  padding: 20px;
   margin-bottom: 10px;
   flex: 1;
   min-height: 0;
