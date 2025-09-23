@@ -87,6 +87,15 @@
           :style="{ left: `${(currentTime / totalDuration) * 100}%` }"
           @mousedown="startPlayheadDrag($event)"
         ></div>
+
+        <!-- Empty timeline hint -->
+        <div v-if="segments.length === 0" class="empty-timeline-hint">
+          <div class="hint-content">
+            <div class="hint-icon">🎬</div>
+            <div class="hint-text">Double click to create new chunk</div>
+            <div class="hint-subtext">Click anywhere on the timeline to add your first subtitle</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1063,6 +1072,57 @@ onUnmounted(() => {
   border-radius: 3px;
 }
 
+/* Empty timeline hint styles */
+.empty-timeline-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hint-content {
+  text-align: center;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 123, 255, 0.2);
+  backdrop-filter: blur(5px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: hintPulse 3s ease-in-out infinite;
+}
+
+.hint-icon {
+  font-size: 16px;
+  margin-bottom: 2px;
+  opacity: 0.7;
+}
+
+.hint-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: #007bff;
+  margin-bottom: 1px;
+}
+
+.hint-subtext {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+}
+
+@keyframes hintPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.01);
+    opacity: 0.8;
+  }
+}
+
 .segment-details {
   background-color: #333;
   border-radius: 6px;
@@ -1579,6 +1639,23 @@ onUnmounted(() => {
   .btn-primary,
   .btn-secondary {
     width: 100%;
+  }
+
+  .hint-content {
+    padding: 6px 10px;
+    margin: 0 20px;
+  }
+
+  .hint-icon {
+    font-size: 14px;
+  }
+
+  .hint-text {
+    font-size: 10px;
+  }
+
+  .hint-subtext {
+    font-size: 8px;
   }
 }
 </style>
