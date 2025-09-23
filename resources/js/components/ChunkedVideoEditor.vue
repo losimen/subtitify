@@ -16,11 +16,11 @@
       <!-- Chunk Navigation -->
       <div class="chunk-navigation">
         <div class="chunk-list">
-          <div 
-            v-for="(entry, index) in subtitleStore.subtitleData?.entries || []" 
+          <div
+            v-for="(entry, index) in subtitleStore.subtitleData?.entries || []"
             :key="entry.id"
             class="chunk-nav-item"
-            :class="{ 
+            :class="{
               'active': currentChunkIndex === index,
               'invalid': !subtitleStore.getChunkValidationStatus(entry.id).isValid
             }"
@@ -216,18 +216,18 @@ const onPause = () => {
 
 const exportSubtitles = () => {
   const validation = subtitleStore.validateAllChunks()
-  
+
   if (!validation.isValid) {
     const errorMessage = `Cannot export subtitles. Please fix the following issues:\n\n${validation.invalidChunks.map(chunkId => {
       const chunkIndex = subtitleStore.getChunkIndexById(chunkId)
       const errors = validation.errors[chunkId] || []
       return `Chunk ${chunkIndex + 1}: ${errors.join(', ')}`
     }).join('\n')}`
-    
+
     alert(errorMessage)
     return
   }
-  
+
   const exportedText = subtitleStore.exportSubtitles()
   const blob = new Blob([exportedText], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
@@ -561,7 +561,7 @@ const formatDuration = (seconds: number): string => {
   .chunked-video-editor {
     padding-bottom: 250px; /* Reduced space for mobile timeline */
   }
-  
+
   .timeline-editor-container {
     height: 200px; /* Fixed height on mobile */
   }

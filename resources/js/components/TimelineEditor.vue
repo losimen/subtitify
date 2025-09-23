@@ -19,8 +19,8 @@
       <div class="timeline-track" ref="timelineTrack">
         <!-- Time markers -->
         <div class="time-markers">
-          <div 
-            v-for="marker in timeMarkers" 
+          <div
+            v-for="marker in timeMarkers"
             :key="marker.time"
             class="time-marker"
             :style="{ left: `${(marker.time / totalDuration) * 100}%` }"
@@ -31,11 +31,11 @@
         </div>
 
         <!-- Subtitle segments -->
-        <div 
-          v-for="(segment, index) in segments" 
+        <div
+          v-for="(segment, index) in segments"
           :key="segment.id"
           class="timeline-segment"
-          :class="{ 
+          :class="{
             'selected': selectedSegmentId === segment.id,
             'editing': editingSegmentId === segment.id,
             'hover': hoveredSegmentId === segment.id,
@@ -47,11 +47,11 @@
           @click="selectSegment(segment)"
         >
           <!-- Resize handles -->
-          <div 
+          <div
             class="resize-handle resize-handle-left"
             @mousedown.stop="startResize($event, segment, 'left')"
           ></div>
-          <div 
+          <div
             class="resize-handle resize-handle-right"
             @mousedown.stop="startResize($event, segment, 'right')"
           ></div>
@@ -65,76 +65,18 @@
         </div>
 
         <!-- Video Timeline Boundary -->
-        <div 
+        <div
           class="timeline-boundary"
           :style="{ left: '100%' }"
         ></div>
 
         <!-- Playhead -->
-        <div 
+        <div
           class="playhead"
           :style="{ left: `${(currentTime / totalDuration) * 100}%` }"
           @mousedown="startPlayheadDrag($event)"
         ></div>
       </div>
-    </div>
-
-    <!-- Segment Details Panel -->
-    <div v-if="selectedSegment" class="segment-details">
-      <h4>Segment {{ getSegmentIndex(selectedSegment.id) + 1 }}</h4>
-      <div class="detail-grid">
-        <div class="detail-item">
-          <label>Start Time:</label>
-          <input 
-            v-model="selectedSegment.startTimeFormatted" 
-            @change="updateSegmentFromInput(selectedSegment)"
-            type="text"
-            pattern="[0-9]{2}:[0-9]{2}"
-          />
-        </div>
-        <div class="detail-item">
-          <label>End Time:</label>
-          <input 
-            v-model="selectedSegment.endTimeFormatted" 
-            @change="updateSegmentFromInput(selectedSegment)"
-            type="text"
-            pattern="[0-9]{2}:[0-9]{2}"
-          />
-        </div>
-        <div class="detail-item">
-          <label>Duration:</label>
-          <span>{{ formatDuration(selectedSegment.endTime - selectedSegment.startTime) }}</span>
-        </div>
-      </div>
-      <div class="segment-text-edit">
-        <label>Text:</label>
-        <textarea 
-          v-model="selectedSegment.text" 
-          @change="updateSegmentText(selectedSegment)"
-          placeholder="Enter subtitle text..."
-        ></textarea>
-      </div>
-      <!-- Validation Errors -->
-      <div v-if="selectedSegment && !getChunkValidation(selectedSegment.id).isValid" class="validation-errors">
-        <h5>⚠️ Validation Errors:</h5>
-        <ul>
-          <li v-for="error in getChunkValidation(selectedSegment.id).errors" :key="error" class="error-item">
-            {{ error }}
-          </li>
-        </ul>
-      </div>
-
-      <div class="segment-actions">
-        <button @click="playSegment(selectedSegment)" class="play-btn">▶️ Play</button>
-        <button @click="deleteSegment(selectedSegment)" class="delete-btn">🗑️ Delete</button>
-      </div>
-    </div>
-
-    <!-- Add Segment Button -->
-    <div class="add-segment-area">
-      <button @click="addNewSegment" class="add-segment-btn">
-        + Add New Segment
-      </button>
     </div>
   </div>
 </template>
@@ -176,16 +118,16 @@ const selectedSegmentId = computed(() => subtitleStore.activeChunk?.id || null)
 const timeMarkers = computed(() => {
   const markers = []
   const interval = Math.max(1, Math.floor(totalDuration.value / 10)) // Show up to 10 markers
-  
+
   for (let i = 0; i <= totalDuration.value; i += interval) {
     markers.push({ time: i })
   }
-  
+
   // Always show the end marker
   if (markers[markers.length - 1]?.time !== totalDuration.value) {
     markers.push({ time: totalDuration.value })
   }
-  
+
   return markers
 })
 
@@ -194,7 +136,7 @@ const getSegmentStyle = (segment: SubtitleEntry) => {
   const startPercent = (segment.startTime / totalDuration.value) * 100
   const endPercent = (segment.endTime / totalDuration.value) * 100
   const widthPercent = endPercent - startPercent
-  
+
   return {
     left: `${startPercent}%`,
     width: `${widthPercent}%`
@@ -212,22 +154,22 @@ const startResize = (event: MouseEvent, segment: SubtitleEntry, handle: 'left' |
   resizeHandle.value = handle
   dragStartX.value = event.clientX
   dragStartTime.value = handle === 'left' ? segment.startTime : segment.endTime
-  
+
   document.addEventListener('mousemove', handleResize)
   document.addEventListener('mouseup', stopResize)
-  
+
   event.preventDefault()
 }
 
 const handleResize = (event: MouseEvent) => {
   if (!isResizing.value || !timelineTrack.value || !selectedSegment.value) return
-  
+
   const rect = timelineTrack.value.getBoundingClientRect()
   const deltaX = event.clientX - dragStartX.value
   const deltaTime = (deltaX / rect.width) * totalDuration.value
-  
+
   const newTime = Math.max(0, Math.min(totalDuration.value, dragStartTime.value + deltaTime))
-  
+
   if (resizeHandle.value === 'left') {
     const newStartTime = Math.min(newTime, selectedSegment.value.endTime - 0.5) // Minimum 0.5s duration
     updateSegmentTime(selectedSegment.value, newStartTime, selectedSegment.value.endTime)
@@ -253,11 +195,11 @@ const startPlayheadDrag = (event: MouseEvent) => {
 
 const handlePlayheadDrag = (event: MouseEvent) => {
   if (!isPlayheadDragging.value || !timelineTrack.value || !props.videoPlayer) return
-  
+
   const rect = timelineTrack.value.getBoundingClientRect()
   const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
   const newTime = percent * totalDuration.value
-  
+
   props.videoPlayer.currentTime = newTime
 }
 
@@ -275,7 +217,7 @@ const updateSegmentTime = (segment: SubtitleEntry, startTime: number, endTime: n
     startTimeFormatted: SubtitleService.secondsToTimeString(startTime),
     endTimeFormatted: SubtitleService.secondsToTimeString(endTime)
   }
-  
+
   subtitleStore.updateEntry(updatedSegment)
   subtitleStore.saveToSession()
 }
@@ -285,15 +227,15 @@ const updateSegmentFromInput = (segment: SubtitleEntry) => {
     alert('Please enter time in MM:SS format (e.g., 00:30)')
     return
   }
-  
+
   const startTime = SubtitleService.timeStringToSeconds(segment.startTimeFormatted)
   const endTime = SubtitleService.timeStringToSeconds(segment.endTimeFormatted)
-  
+
   if (startTime >= endTime) {
     alert('End time must be after start time')
     return
   }
-  
+
   updateSegmentTime(segment, startTime, endTime)
 }
 
@@ -302,7 +244,7 @@ const updateSegmentText = (segment: SubtitleEntry) => {
     ...segment,
     text: segment.text.trim()
   }
-  
+
   subtitleStore.updateEntry(updatedSegment)
   subtitleStore.saveToSession()
 }
@@ -318,7 +260,7 @@ const deleteSegment = (segment: SubtitleEntry) => {
   if (confirm('Are you sure you want to delete this segment?')) {
     subtitleStore.removeEntry(segment.id)
     subtitleStore.saveToSession()
-    
+
     // Adjust active chunk index if needed
     if (subtitleStore.activeChunkIndex >= subtitleStore.subtitleCount) {
       subtitleStore.setActiveChunkIndex(Math.max(0, subtitleStore.subtitleCount - 1))
@@ -335,7 +277,7 @@ const addNewSegment = () => {
     startTimeFormatted: SubtitleService.secondsToTimeString(totalDuration.value * 0.1),
     endTimeFormatted: SubtitleService.secondsToTimeString(totalDuration.value * 0.2)
   }
-  
+
   subtitleStore.addEntry(newEntry)
   subtitleStore.saveToSession()
   subtitleStore.setActiveChunkById(newEntry.id)
@@ -372,10 +314,10 @@ const hasTimelineExceedingChunks = () => {
 // Watch for current time changes to update playhead
 watch(currentTime, (newTime) => {
   // Auto-select segment if playhead is over it
-  const currentSegment = segments.value.find(segment => 
+  const currentSegment = segments.value.find(segment =>
     newTime >= segment.startTime && newTime <= segment.endTime
   )
-  
+
   if (currentSegment && subtitleStore.activeChunk?.id !== currentSegment.id) {
     subtitleStore.setActiveChunkById(currentSegment.id)
   }
@@ -393,6 +335,10 @@ onUnmounted(() => {
 <style scoped>
 .timeline-editor {
   padding: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100vh - 150px);
 }
 
 .timeline-header {
@@ -405,12 +351,13 @@ onUnmounted(() => {
 .timeline-header h3 {
   margin: 0;
   color: #007bff;
-  font-size: 16px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .timeline-info {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   color: #888;
   font-size: 12px;
   align-items: center;
@@ -448,15 +395,17 @@ onUnmounted(() => {
   position: relative;
   background-color: #333;
   border-radius: 6px;
-  padding: 8px;
+  padding: 20px;
   margin-bottom: 10px;
+  flex: 1;
+  min-height: 0;
 }
 
 .timeline-track {
   position: relative;
-  height: 40px;
+  height: 60px;
   background-color: #444;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: crosshair;
 }
 
@@ -475,25 +424,26 @@ onUnmounted(() => {
 }
 
 .marker-line {
-  width: 1px;
-  height: 15px;
+  width: 2px;
+  height: 20px;
   background-color: #666;
   margin: 0 auto;
 }
 
 .marker-label {
-  font-size: 10px;
+  font-size: 12px;
   color: #888;
   text-align: center;
-  margin-top: 2px;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
 .timeline-segment {
   position: absolute;
-  top: 3px;
-  height: 34px;
+  top: 4px;
+  height: 52px;
   background-color: #007bff;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   border: 2px solid transparent;
@@ -561,7 +511,7 @@ onUnmounted(() => {
 }
 
 .segment-content {
-  padding: 3px 6px;
+  padding: 4px 8px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -570,14 +520,14 @@ onUnmounted(() => {
 }
 
 .segment-number {
-  font-size: 8px;
+  font-size: 9px;
   color: rgba(255, 255, 255, 0.8);
   font-weight: 600;
   margin-bottom: 1px;
 }
 
 .segment-text {
-  font-size: 9px;
+  font-size: 11px;
   color: white;
   font-weight: 500;
   line-height: 1.1;
@@ -585,7 +535,7 @@ onUnmounted(() => {
 }
 
 .segment-timing {
-  font-size: 7px;
+  font-size: 8px;
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -792,7 +742,7 @@ onUnmounted(() => {
   .detail-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .segment-actions {
     flex-direction: column;
   }
