@@ -642,7 +642,7 @@ const formatDuration = (seconds: number): string => {
   padding: 6px 40px 6px 6px; /* Right padding for buttons */
   font-size: 12px;
   font-family: inherit;
-  resize: vertical;
+  resize: none;
   min-height: 30px;
   outline: none;
   transition: border-color 0.3s;
