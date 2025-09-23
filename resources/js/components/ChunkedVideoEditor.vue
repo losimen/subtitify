@@ -390,29 +390,6 @@ const generateCreativeText = async () => {
       body: JSON.stringify(requestData)
     })
 
-    // Check if response is HTML (error page) instead of JSON
-    const contentType = apiResponse.headers.get('content-type')
-    if (!contentType || !contentType.includes('application/json')) {
-      const htmlText = await apiResponse.text()
-      console.error('Received HTML instead of JSON:', htmlText.substring(0, 200))
-      throw new Error(`Server returned HTML instead of JSON. Status: ${apiResponse.status}. This usually means the API route is not found.`)
-    }
-
-    if (!apiResponse.ok) {
-      const errorData = await apiResponse.json().catch(() => ({ error: 'Unknown error' }))
-      console.error('API Error Details:', errorData)
-
-      // Handle validation errors specifically
-      if (apiResponse.status === 422 && errorData.errors) {
-        const validationErrors = Object.entries(errorData.errors)
-          .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
-          .join('; ')
-        throw new Error(`Validation failed: ${validationErrors}`)
-      }
-
-      throw new Error(`API request failed: ${apiResponse.status} - ${errorData.message || errorData.error || 'Unknown error'}`)
-    }
-
     const result = await apiResponse.json()
 
     if (result.success) {
@@ -420,13 +397,11 @@ const generateCreativeText = async () => {
       editingText.value = result.text
       hasTextChanges.value = true
       subtitleStore.setHasTextChanges(true)
-    } else {
-      throw new Error(result.error || 'Failed to generate creative text')
     }
 
   } catch (error) {
     console.error('Error generating creative text:', error)
-    alert('Failed to generate creative text: ' + error.message)
+    alert('Failed to generate creative text')
   } finally {
     isGeneratingText.value = false
   }
