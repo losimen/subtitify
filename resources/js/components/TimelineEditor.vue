@@ -35,11 +35,12 @@
           v-for="(segment, index) in segments"
           :key="segment.id"
           class="timeline-segment"
-          :class="{
+          :class="{ 
             'selected': selectedSegmentId === segment.id,
             'editing': editingSegmentId === segment.id,
             'hover': hoveredSegmentId === segment.id,
-            'invalid': !getChunkValidation(segment.id).isValid
+            'invalid': !getChunkValidation(segment.id).isValid,
+            'last-edited': lastEditedChunkId === segment.id
           }"
           :style="getSegmentStyle(segment)"
           @mouseenter="hoveredSegmentId = segment.id"
@@ -101,6 +102,7 @@ const timelineTrack = ref<HTMLDivElement | null>(null)
 // State
 const editingSegmentId = ref<string | null>(null)
 const hoveredSegmentId = ref<string | null>(null)
+const lastEditedChunkId = ref<string | null>(null)
 const isResizing = ref(false)
 const isPlayheadDragging = ref(false)
 const dragStartX = ref(0)
@@ -144,6 +146,7 @@ const getSegmentStyle = (segment: SubtitleEntry) => {
 }
 
 const selectSegment = (segment: SubtitleEntry) => {
+  // Select segment by ID - no time-based selection
   subtitleStore.setActiveChunkById(segment.id)
   editingSegmentId.value = null
 }
@@ -217,9 +220,11 @@ const updateSegmentTime = (segment: SubtitleEntry, startTime: number, endTime: n
     startTimeFormatted: SubtitleService.secondsToTimeString(startTime),
     endTimeFormatted: SubtitleService.secondsToTimeString(endTime)
   }
-
+  
   subtitleStore.updateEntry(updatedSegment)
   subtitleStore.saveToSession()
+  // Mark this chunk as the last edited
+  lastEditedChunkId.value = segment.id
 }
 
 const updateSegmentFromInput = (segment: SubtitleEntry) => {
@@ -244,9 +249,11 @@ const updateSegmentText = (segment: SubtitleEntry) => {
     ...segment,
     text: segment.text.trim()
   }
-
+  
   subtitleStore.updateEntry(updatedSegment)
   subtitleStore.saveToSession()
+  // Mark this chunk as the last edited
+  lastEditedChunkId.value = segment.id
 }
 
 const playSegment = (segment: SubtitleEntry) => {
@@ -280,7 +287,10 @@ const addNewSegment = () => {
 
   subtitleStore.addEntry(newEntry)
   subtitleStore.saveToSession()
+  // Select the newly created segment by ID
   subtitleStore.setActiveChunkById(newEntry.id)
+  // Mark this chunk as the last edited
+  lastEditedChunkId.value = newEntry.id
 }
 
 const getSegmentIndex = (segmentId: string) => {
@@ -311,17 +321,8 @@ const hasTimelineExceedingChunks = () => {
   })
 }
 
-// Watch for current time changes to update playhead
-watch(currentTime, (newTime) => {
-  // Auto-select segment if playhead is over it
-  const currentSegment = segments.value.find(segment =>
-    newTime >= segment.startTime && newTime <= segment.endTime
-  )
-
-  if (currentSegment && subtitleStore.activeChunk?.id !== currentSegment.id) {
-    subtitleStore.setActiveChunkById(currentSegment.id)
-  }
-})
+// Note: Removed automatic time-based selection
+// Selection now only happens through explicit user interaction (clicking on segments)
 
 onUnmounted(() => {
   // Clean up event listeners
@@ -483,6 +484,18 @@ onUnmounted(() => {
 .timeline-segment.invalid.selected {
   border-color: #ffc107 !important;
   box-shadow: 0 0 10px rgba(255, 193, 7, 0.5) !important;
+}
+
+.timeline-segment.last-edited {
+  z-index: 15;
+  transform: translateY(-3px);
+  box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
+}
+
+.timeline-segment.last-edited.selected {
+  z-index: 20;
+  transform: translateY(-3px);
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.6);
 }
 
 .resize-handle {
