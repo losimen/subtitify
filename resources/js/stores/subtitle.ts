@@ -196,41 +196,41 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   // Validation functions
   function validateChunk(entry: SubtitleEntry): { isValid: boolean; errors: string[] } {
     const errors: string[] = []
-    
+
     // Check if chunk exceeds video duration
-    if (entry.endTime > videoDuration.value) {
+    if (entry.endTime > videoDuration.value + 1) {
       errors.push(`Chunk ends at ${SubtitleService.secondsToTimeString(entry.endTime)} but video is only ${SubtitleService.secondsToTimeString(videoDuration.value)} long`)
     }
-    
+
     // Check if chunk starts after video duration
     if (entry.startTime > videoDuration.value) {
       errors.push(`Chunk starts at ${SubtitleService.secondsToTimeString(entry.startTime)} but video is only ${SubtitleService.secondsToTimeString(videoDuration.value)} long`)
     }
-    
+
     // Check if start time is negative
     if (entry.startTime < 0) {
       errors.push('Start time cannot be negative')
     }
-    
+
     // Check if end time is before start time
     if (entry.endTime <= entry.startTime) {
       errors.push('End time must be after start time')
     }
-    
+
     // Check for intersections with other chunks
     if (subtitleData.value) {
-      const intersectingChunks = subtitleData.value.entries.filter(other => 
-        other.id !== entry.id && 
+      const intersectingChunks = subtitleData.value.entries.filter(other =>
+        other.id !== entry.id &&
         ((entry.startTime >= other.startTime && entry.startTime < other.endTime) ||
          (entry.endTime > other.startTime && entry.endTime <= other.endTime) ||
          (entry.startTime <= other.startTime && entry.endTime >= other.endTime))
       )
-      
+
       if (intersectingChunks.length > 0) {
         errors.push('Chunk intersects with other chunks')
       }
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors
@@ -241,10 +241,10 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     if (!subtitleData.value) {
       return { isValid: true, invalidChunks: [], errors: {} }
     }
-    
+
     const invalidChunks: string[] = []
     const errors: Record<string, string[]> = {}
-    
+
     subtitleData.value.entries.forEach(entry => {
       const validation = validateChunk(entry)
       if (!validation.isValid) {
@@ -252,7 +252,7 @@ export const useSubtitleStore = defineStore('subtitle', () => {
         errors[entry.id] = validation.errors
       }
     })
-    
+
     return {
       isValid: invalidChunks.length === 0,
       invalidChunks,
@@ -264,12 +264,12 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     if (!subtitleData.value) {
       return { isValid: true, errors: [] }
     }
-    
+
     const entry = subtitleData.value.entries.find(e => e.id === chunkId)
     if (!entry) {
       return { isValid: true, errors: [] }
     }
-    
+
     return validateChunk(entry)
   }
 

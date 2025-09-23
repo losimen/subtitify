@@ -16,11 +16,15 @@
     </div>
 
     <div class="timeline-container" ref="timelineContainer">
-      <div
-        class="timeline-track"
-        :class="{ 'blocked-extension': isExtensionBlocked }"
-        ref="timelineTrack"
-        @click="handleTimelineClick"
+      <div 
+        class="timeline-track" 
+        :class="{ 
+          'snapping': isSnapping,
+          'dragging': isDragging
+        }"
+        :style="{ '--total-duration': totalDuration }"
+        ref="timelineTrack" 
+        @dblclick="handleTimelineDoubleClick"
       >
         <!-- Time markers -->
         <div class="time-markers">
@@ -28,10 +32,11 @@
             v-for="marker in timeMarkers"
             :key="marker.time"
             class="time-marker"
+            :class="{ 'major-marker': marker.isMajor }"
             :style="{ left: `${(marker.time / totalDuration) * 100}%` }"
           >
             <div class="marker-line"></div>
-            <div class="marker-label">{{ formatDuration(marker.time) }}</div>
+            <div v-if="marker.isMajor" class="marker-label">{{ formatDuration(marker.time) }}</div>
           </div>
         </div>
 
@@ -228,6 +233,7 @@ const dragStartX = ref(0)
 const dragStartTime = ref(0)
 const resizeHandle = ref<'left' | 'right' | null>(null)
 const resizingSegment = ref<SubtitleEntry | null>(null)
+const currentDragTime = ref(0) // Track the current dragged position
 const isExtensionBlocked = ref(false)
 const blockedExtensionReason = ref<'intersection' | 'boundary' | null>(null)
 
@@ -240,6 +246,10 @@ const newChunkData = reactive({
 })
 const newChunkError = ref('')
 
+// Snapping visual feedback
+const isSnapping = ref(false)
+const isDragging = ref(false)
+
 // Computed
 const segments = computed(() => subtitleStore.subtitleData?.entries || [])
 const totalDuration = computed(() => subtitleStore.videoDuration || subtitleStore.totalDuration)
@@ -250,21 +260,33 @@ const selectedSegmentId = computed(() => subtitleStore.activeChunk?.id || null)
 
 const timeMarkers = computed(() => {
   const markers = []
-  const interval = Math.max(1, Math.floor(totalDuration.value / 10)) // Show up to 10 markers
 
-  for (let i = 0; i <= totalDuration.value; i += interval) {
-    markers.push({ time: i })
-  }
-
-  // Always show the end marker
-  if (markers[markers.length - 1]?.time !== totalDuration.value) {
-    markers.push({ time: totalDuration.value })
+  // Show markers every 1 second
+  for (let i = 0; i <= totalDuration.value; i += 1) {
+    markers.push({
+      time: i,
+      isMajor: i % 5 === 0 || i === 0 || i === totalDuration.value // Major markers every 5 seconds
+    })
   }
 
   return markers
 })
 
 // Methods
+const snapToSecond = (time: number): number => {
+  const snapped = Math.round(time)
+
+  // Show brief visual feedback when snapping occurs
+  if (Math.abs(time - snapped) > 0.1) {
+    isSnapping.value = true
+    setTimeout(() => {
+      isSnapping.value = false
+    }, 200)
+  }
+
+  return snapped
+}
+
 const getSegmentStyle = (segment: SubtitleEntry) => {
   const startPercent = (segment.startTime / totalDuration.value) * 100
   const endPercent = (segment.endTime / totalDuration.value) * 100
@@ -282,30 +304,32 @@ const selectSegment = (segment: SubtitleEntry) => {
   editingSegmentId.value = null
 }
 
-const handleTimelineClick = (event: MouseEvent) => {
-  // Only handle clicks on empty space (not on segments or resize handles)
+const handleTimelineDoubleClick = (event: MouseEvent) => {
+  // Only handle double clicks on empty space (not on segments or resize handles)
   const target = event.target as HTMLElement
 
-  // Check if click was on a segment or resize handle
+  // Check if double click was on a segment or resize handle
   if (target.closest('.timeline-segment') || target.closest('.resize-handle')) {
-    return // Let the segment handle the click
+    return // Let the segment handle the double click
   }
 
-  // Click was on empty space - create new chunk at click position
+  // Double click was on empty space - create new chunk at click position
   if (timelineTrack.value) {
     const rect = timelineTrack.value.getBoundingClientRect()
     const clickX = event.clientX - rect.left
     const clickPercent = clickX / rect.width
     const clickTime = clickPercent * totalDuration.value
-
-    // Create new chunk at click position
-    createChunkAtTime(clickTime)
+    const snappedClickTime = snapToSecond(clickTime)
+    
+    // Create new chunk at double click position (snap immediately since no dragging)
+    createChunkAtTime(snappedClickTime)
   }
 }
 
 
 const startResize = (event: MouseEvent, segment: SubtitleEntry, handle: 'left' | 'right') => {
   isResizing.value = true
+  isDragging.value = true
   resizeHandle.value = handle
   resizingSegment.value = segment
   dragStartX.value = event.clientX
@@ -328,11 +352,13 @@ const handleResize = (event: MouseEvent) => {
   const deltaTime = (deltaX / rect.width) * totalDuration.value
 
   const newTime = Math.max(0, Math.min(totalDuration.value, dragStartTime.value + deltaTime))
+  // Track the current drag position
+  currentDragTime.value = newTime
 
   if (resizeHandle.value === 'left') {
-    const newStartTime = Math.min(newTime, resizingSegment.value.endTime - 0.5) // Minimum 0.5s duration
+    const newStartTime = Math.min(newTime, resizingSegment.value.endTime - 1) // Minimum 1s duration
     const validation = validateResizeExtension(resizingSegment.value, newStartTime, resizingSegment.value.endTime, 'left')
-
+    
     if (validation.isValid) {
       updateSegmentTime(resizingSegment.value, newStartTime, resizingSegment.value.endTime)
     } else {
@@ -340,9 +366,9 @@ const handleResize = (event: MouseEvent) => {
       showBlockedExtensionAnimation(validation.reason!)
     }
   } else {
-    const newEndTime = Math.max(newTime, resizingSegment.value.startTime + 0.5) // Minimum 0.5s duration
+    const newEndTime = Math.max(newTime, resizingSegment.value.startTime + 1) // Minimum 1s duration
     const validation = validateResizeExtension(resizingSegment.value, resizingSegment.value.startTime, newEndTime, 'right')
-
+    
     if (validation.isValid) {
       updateSegmentTime(resizingSegment.value, resizingSegment.value.startTime, newEndTime)
     } else {
@@ -353,15 +379,42 @@ const handleResize = (event: MouseEvent) => {
 }
 
 const stopResize = () => {
+  if (resizingSegment.value && resizeHandle.value) {
+    // Snap only the handle that was being dragged to whole seconds on mouseup
+    const currentSegment = resizingSegment.value
+    const draggedTime = currentDragTime.value
+    
+    if (resizeHandle.value === 'left') {
+      // Only snap the start time (left handle), keep end time as is
+      const snappedStartTime = snapToSecond(draggedTime)
+      
+      // Ensure minimum 1 second duration after snapping
+      const finalStartTime = Math.min(snappedStartTime, currentSegment.endTime - 1)
+      
+      updateSegmentTime(currentSegment, finalStartTime, currentSegment.endTime)
+    } else {
+      // Only snap the end time (right handle), keep start time as is
+      const snappedEndTime = snapToSecond(draggedTime)
+      
+      // Ensure minimum 1 second duration after snapping
+      const finalEndTime = Math.max(snappedEndTime, currentSegment.startTime + 1)
+      
+      updateSegmentTime(currentSegment, currentSegment.startTime, finalEndTime)
+    }
+  }
+  
   isResizing.value = false
+  isDragging.value = false
   resizeHandle.value = null
   resizingSegment.value = null
+  currentDragTime.value = 0
   document.removeEventListener('mousemove', handleResize)
   document.removeEventListener('mouseup', stopResize)
 }
 
 const startPlayheadDrag = (event: MouseEvent) => {
   isPlayheadDragging.value = true
+  isDragging.value = true
   document.addEventListener('mousemove', handlePlayheadDrag)
   document.addEventListener('mouseup', stopPlayheadDrag)
   event.preventDefault()
@@ -373,12 +426,20 @@ const handlePlayheadDrag = (event: MouseEvent) => {
   const rect = timelineTrack.value.getBoundingClientRect()
   const percent = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width))
   const newTime = percent * totalDuration.value
+  // Don't snap during drag - allow smooth movement
 
   props.videoPlayer.currentTime = newTime
 }
 
 const stopPlayheadDrag = () => {
+  if (props.videoPlayer) {
+    // Snap the final playhead position to whole seconds on mouseup
+    const snappedTime = snapToSecond(props.videoPlayer.currentTime)
+    props.videoPlayer.currentTime = snappedTime
+  }
+  
   isPlayheadDragging.value = false
+  isDragging.value = false
   document.removeEventListener('mousemove', handlePlayheadDrag)
   document.removeEventListener('mouseup', stopPlayheadDrag)
 }
@@ -404,11 +465,16 @@ const updateSegmentFromInput = (segment: SubtitleEntry) => {
     return
   }
 
-  const startTime = SubtitleService.timeStringToSeconds(segment.startTimeFormatted)
-  const endTime = SubtitleService.timeStringToSeconds(segment.endTimeFormatted)
+  const startTime = snapToSecond(SubtitleService.timeStringToSeconds(segment.startTimeFormatted))
+  const endTime = snapToSecond(SubtitleService.timeStringToSeconds(segment.endTimeFormatted))
 
   if (startTime >= endTime) {
     alert('End time must be after start time')
+    return
+  }
+
+  if (endTime - startTime < 1) {
+    alert('Subtitle duration must be at least 1 second')
     return
   }
 
@@ -538,13 +604,13 @@ const showBlockedExtensionAnimation = (reason: 'intersection' | 'boundary') => {
 
 // Chunk creation methods
 const createChunkAtTime = (time: number) => {
-  const duration = 2 // Default 2 seconds duration
+  const duration = 1 // Default 1 seconds duration
   const startTime = Math.max(0, time - duration / 2)
   const endTime = Math.min(totalDuration.value, startTime + duration)
 
-  // Adjust if we hit boundaries
-  const adjustedStartTime = endTime - duration >= 0 ? endTime - duration : 0
-  const adjustedEndTime = adjustedStartTime + duration
+  // Adjust if we hit boundaries, ensuring minimum 1 second duration and whole seconds
+  const adjustedStartTime = snapToSecond(endTime - duration >= 0 ? endTime - duration : 0)
+  const adjustedEndTime = snapToSecond(Math.max(adjustedStartTime + 1, adjustedStartTime + duration)) // Ensure minimum 1s
 
   const newEntry: SubtitleEntry = {
     id: subtitleStore.generateNewId(),
@@ -598,22 +664,22 @@ const setQuickPosition = (position: 'beginning' | 'middle' | 'end' | 'current') 
 
   switch (position) {
     case 'beginning':
-      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(0)
-      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(duration)
+      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(snapToSecond(0))
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(snapToSecond(Math.max(1, duration))) // Minimum 1s
       break
     case 'middle':
-      const middleTime = totalDuration.value / 2
-      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(middleTime - duration / 2)
-      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(middleTime + duration / 2)
+      const middleTime = snapToSecond(totalDuration.value / 2)
+      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(snapToSecond(middleTime - duration / 2))
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(snapToSecond(middleTime + duration / 2))
       break
     case 'end':
-      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(totalDuration.value)
-      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(Math.max(0, totalDuration.value - duration))
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(snapToSecond(totalDuration.value))
+      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(snapToSecond(Math.max(0, totalDuration.value - Math.max(1, duration))))
       break
     case 'current':
-      const currentTimeValue = currentTime.value
+      const currentTimeValue = snapToSecond(currentTime.value)
       newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(currentTimeValue)
-      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(Math.min(totalDuration.value, currentTimeValue + duration))
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(snapToSecond(Math.min(totalDuration.value, currentTimeValue + Math.max(1, duration))))
       break
   }
 
@@ -636,11 +702,16 @@ const createChunkFromModal = () => {
     return
   }
 
-  const startTime = SubtitleService.timeStringToSeconds(newChunkData.startTimeFormatted)
-  const endTime = SubtitleService.timeStringToSeconds(newChunkData.endTimeFormatted)
+  const startTime = snapToSecond(SubtitleService.timeStringToSeconds(newChunkData.startTimeFormatted))
+  const endTime = snapToSecond(SubtitleService.timeStringToSeconds(newChunkData.endTimeFormatted))
 
   if (startTime >= endTime) {
     newChunkError.value = 'End time must be after start time'
+    return
+  }
+
+  if (endTime - startTime < 1) {
+    newChunkError.value = 'Subtitle duration must be at least 1 second'
     return
   }
 
@@ -765,6 +836,9 @@ onUnmounted(() => {
   background-color: #444;
   border-radius: 8px;
   cursor: crosshair;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: calc(100% / var(--total-duration, 1)) 100%;
 }
 
 .time-markers {
@@ -782,18 +856,26 @@ onUnmounted(() => {
 }
 
 .marker-line {
+  width: 1px;
+  height: 12px;
+  background-color: #555;
+  margin: 0 auto;
+  transition: all 0.2s ease;
+}
+
+.time-marker.major-marker .marker-line {
   width: 2px;
   height: 20px;
   background-color: #666;
-  margin: 0 auto;
 }
 
 .marker-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #888;
   text-align: center;
   margin-top: 4px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .timeline-segment {
@@ -1199,15 +1281,32 @@ onUnmounted(() => {
   }
 }
 
-/* Add shake animation to timeline when extension is blocked */
-.timeline-track.blocked-extension {
-  animation: timelineShake 0.5s ease-in-out;
+
+/* Snapping visual feedback */
+.timeline-track.snapping {
+  animation: snapPulse 0.2s ease-out;
 }
 
-@keyframes timelineShake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-  20%, 40%, 60%, 80% { transform: translateX(2px); }
+/* Dragging visual feedback */
+.timeline-track.dragging {
+  background-color: #4a4a4a;
+  box-shadow: inset 0 0 0 2px rgba(0, 123, 255, 0.3);
+}
+
+
+@keyframes snapPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(0, 123, 255, 0.1);
+    transform: scale(1.01);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+    transform: scale(1);
+  }
 }
 
 /* Enhanced resize handle feedback */
