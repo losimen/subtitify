@@ -61,7 +61,7 @@ export class SubtitleService {
   /**
    * Converts time string (MM:SS) to seconds
    */
-  private static timeStringToSeconds(timeStr: string): number {
+  static timeStringToSeconds(timeStr: string): number {
     const [minutes, seconds] = timeStr.split(':').map(Number)
     return minutes * 60 + seconds
   }

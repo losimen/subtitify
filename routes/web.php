@@ -11,6 +11,10 @@ Route::get('/subtitle', function () {
     return Inertia::render('CreativitySubtitle');
 })->name('subtitle');
 
+Route::get('/subtitle/edit', function () {
+    return Inertia::render('ChunkedVideoEditor');
+})->name('subtitle.edit');
+
 Route::get('dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');

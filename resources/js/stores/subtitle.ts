@@ -9,6 +9,8 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   const subtitleText = ref('')
   const currentTime = ref(0)
   const isPlaying = ref(false)
+  const isEditing = ref(false)
+  const editingEntry = ref<SubtitleEntry | null>(null)
 
   // Getters
   const currentSubtitle = computed(() => {
@@ -98,12 +100,73 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     }
   }
 
+  // Editing actions
+  function startEditing(entry: SubtitleEntry) {
+    isEditing.value = true
+    editingEntry.value = { ...entry }
+  }
+
+  function stopEditing() {
+    isEditing.value = false
+    editingEntry.value = null
+  }
+
+  function updateEntry(updatedEntry: SubtitleEntry) {
+    if (!subtitleData.value) return
+
+    const index = subtitleData.value.entries.findIndex(entry => entry.id === updatedEntry.id)
+    if (index !== -1) {
+      subtitleData.value.entries[index] = updatedEntry
+      // Update total duration if needed
+      subtitleData.value.totalDuration = Math.max(
+        subtitleData.value.totalDuration,
+        ...subtitleData.value.entries.map(e => e.endTime)
+      )
+    }
+  }
+
+  function addEntry(newEntry: SubtitleEntry) {
+    if (!subtitleData.value) return
+
+    subtitleData.value.entries.push(newEntry)
+    // Sort entries by start time
+    subtitleData.value.entries.sort((a, b) => a.startTime - b.startTime)
+    // Update total duration
+    subtitleData.value.totalDuration = Math.max(
+      subtitleData.value.totalDuration,
+      ...subtitleData.value.entries.map(e => e.endTime)
+    )
+  }
+
+  function removeEntry(entryId: string) {
+    if (!subtitleData.value) return
+
+    subtitleData.value.entries = subtitleData.value.entries.filter(entry => entry.id !== entryId)
+    // Update total duration
+    if (subtitleData.value.entries.length > 0) {
+      subtitleData.value.totalDuration = Math.max(
+        ...subtitleData.value.entries.map(e => e.endTime)
+      )
+    } else {
+      subtitleData.value.totalDuration = 0
+    }
+  }
+
+  function generateNewId(): string {
+    if (!subtitleData.value) return `subtitle-${Date.now()}`
+    const existingIds = subtitleData.value.entries.map(e => parseInt(e.id.split('-')[1])).filter(id => !isNaN(id))
+    const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0
+    return `subtitle-${maxId + 1}`
+  }
+
   return {
     // State
     subtitleData,
     subtitleText,
     currentTime,
     isPlaying,
+    isEditing,
+    editingEntry,
 
     // Getters
     currentSubtitle,
@@ -123,5 +186,13 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     clearSubtitles,
     loadFromSession,
     saveToSession,
+
+    // Editing actions
+    startEditing,
+    stopEditing,
+    updateEntry,
+    addEntry,
+    removeEntry,
+    generateNewId,
   }
 })

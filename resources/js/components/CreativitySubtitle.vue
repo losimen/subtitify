@@ -16,9 +16,14 @@
     </div>
 
     <div class="controls">
-      <button @click="goBack" class="back-button">
-        ← Back to Upload
-      </button>
+      <div class="control-buttons">
+        <button @click="goBack" class="back-button">
+          ← Back to Upload
+        </button>
+        <button @click="editSubtitles" class="edit-button" v-if="subtitleStore.hasSubtitles">
+          ✏️ Edit Subtitles
+        </button>
+      </div>
       <div class="file-info">
         <span class="file-name">{{ fileName }}</span>
         <span class="file-size">{{ fileSize }}</span>
@@ -108,6 +113,10 @@ const goBack = () => {
   router.visit('/')
 }
 
+const editSubtitles = () => {
+  router.visit('/subtitle/edit')
+}
+
 // Format file size for display
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes'
@@ -186,6 +195,12 @@ const formatDuration = (seconds: number): string => {
   gap: 20px;
 }
 
+.control-buttons {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
 .back-button {
   padding: 12px 24px;
   background-color: #333;
@@ -205,6 +220,27 @@ const formatDuration = (seconds: number): string => {
 }
 
 .back-button:active {
+  transform: translateY(0);
+}
+
+.edit-button {
+  padding: 12px 24px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.edit-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.edit-button:active {
   transform: translateY(0);
 }
 
