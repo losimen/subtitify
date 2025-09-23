@@ -563,6 +563,11 @@ const hasTimelineExceedingChunks = () => {
   })
 }
 
+// Watch for changes in timeline exceeding chunks and update global state
+watch(() => hasTimelineExceedingChunks(), (hasExceeding) => {
+  subtitleStore.setHasTimelineExceedingChunks(hasExceeding)
+}, { immediate: true })
+
 // Intersection detection methods
 const checkSegmentIntersection = (segment: SubtitleEntry, newStartTime: number, newEndTime: number) => {
   return segments.value.some(otherSegment => {

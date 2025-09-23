@@ -13,6 +13,10 @@ export const useSubtitleStore = defineStore('subtitle', () => {
   const editingEntry = ref<SubtitleEntry | null>(null)
   const activeChunkIndex = ref(0)
   const videoDuration = ref(0)
+  
+  // Global validation state
+  const hasTimelineExceedingChunks = ref(false)
+  const hasTextChanges = ref(false)
 
   // Getters
   const currentSubtitle = computed(() => {
@@ -37,6 +41,15 @@ export const useSubtitleStore = defineStore('subtitle', () => {
       return null
     }
     return subtitleData.value.entries[activeChunkIndex.value]
+  })
+
+  // Global validation computed properties
+  const hasValidationIssues = computed(() => {
+    return hasTimelineExceedingChunks.value || hasTextChanges.value
+  })
+
+  const canExport = computed(() => {
+    return !hasValidationIssues.value
   })
 
   // Actions
@@ -273,6 +286,20 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     return validateChunk(entry)
   }
 
+  // Global validation state management
+  function setHasTimelineExceedingChunks(hasExceeding: boolean) {
+    hasTimelineExceedingChunks.value = hasExceeding
+  }
+
+  function setHasTextChanges(hasChanges: boolean) {
+    hasTextChanges.value = hasChanges
+  }
+
+  function resetValidationState() {
+    hasTimelineExceedingChunks.value = false
+    hasTextChanges.value = false
+  }
+
   return {
     // State
     subtitleData,
@@ -283,6 +310,8 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     editingEntry,
     activeChunkIndex,
     videoDuration,
+    hasTimelineExceedingChunks,
+    hasTextChanges,
 
     // Getters
     currentSubtitle,
@@ -290,6 +319,8 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     subtitleCount,
     hasSubtitles,
     activeChunk,
+    hasValidationIssues,
+    canExport,
 
     // Actions
     setSubtitleText,
@@ -322,5 +353,10 @@ export const useSubtitleStore = defineStore('subtitle', () => {
     validateChunk,
     validateAllChunks,
     getChunkValidationStatus,
+
+    // Global validation state management
+    setHasTimelineExceedingChunks,
+    setHasTextChanges,
+    resetValidationState,
   }
 })

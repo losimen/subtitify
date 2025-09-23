@@ -1,9 +1,16 @@
 <template>
   <div class="chunked-video-editor">
     <div class="editor-header">
-      <h2>Chunked Video Editor</h2>
+      <div class="header-left">
+        <h2>Chunked Video Editor</h2>
+      </div>
       <div class="header-actions">
-        <button @click="exportSubtitles" class="export-button">
+        <button
+          @click="subtitleStore.canExport ? exportSubtitles() : null"
+          class="export-button"
+          :disabled="!subtitleStore.canExport"
+          :title="subtitleStore.hasValidationIssues ? 'Cannot export: Please fix validation issues first' : 'Export video with subtitles'"
+        >
           📤 Export
         </button>
         <button @click="goBack" class="back-button">
@@ -277,6 +284,8 @@ const updateEditingText = () => {
     editingText.value = currentSubtitle.value.text
     originalText.value = currentSubtitle.value.text
     hasTextChanges.value = false
+    // Update global state
+    subtitleStore.setHasTextChanges(false)
 
     // Load styling from current subtitle entry
     textStyling.size = currentSubtitle.value.styling.size
@@ -286,11 +295,15 @@ const updateEditingText = () => {
     editingText.value = ''
     originalText.value = ''
     hasTextChanges.value = false
+    // Update global state
+    subtitleStore.setHasTextChanges(false)
   }
 }
 
 const onTextChange = () => {
   hasTextChanges.value = editingText.value !== originalText.value
+  // Update global state
+  subtitleStore.setHasTextChanges(hasTextChanges.value)
 }
 
 const saveTextChanges = () => {
@@ -312,11 +325,15 @@ const saveTextChanges = () => {
   // Update original text to reflect saved changes
   originalText.value = editingText.value
   hasTextChanges.value = false
+  // Update global state
+  subtitleStore.setHasTextChanges(false)
 }
 
 const resetTextChanges = () => {
   editingText.value = originalText.value
   hasTextChanges.value = false
+  // Update global state
+  subtitleStore.setHasTextChanges(false)
 
   // Reset styling to original values
   if (currentSubtitle.value) {
@@ -329,6 +346,8 @@ const resetTextChanges = () => {
 const onStylingChange = () => {
   // Mark that there are changes when styling is modified
   hasTextChanges.value = true
+  // Update global state
+  subtitleStore.setHasTextChanges(true)
   console.log('Text styling changed:', textStyling)
 }
 
@@ -420,9 +439,14 @@ const goBack = () => {
 }
 
 const exportSubtitles = async () => {
+  // Prevent export if there are validation issues - double check
+  if (!subtitleStore.canExport || subtitleStore.hasValidationIssues) {
+    alert('Cannot export: Please fix validation issues first (timeline exceeding chunks or unsaved text changes)')
+    return
+  }
+
   try {
     const storedFile = sessionStorage.getItem('uploadedFile')
-      console.log(storedFile)
     let fileData = null
 
     if (storedFile) {
@@ -513,15 +537,38 @@ const formatDuration = (seconds: number): string => {
 .editor-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 2px solid #333;
 }
 
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .editor-header h2 {
   font-size: 18px;
   margin: 0;
+}
+
+.validation-warning {
+  font-size: 12px;
+  color: #ffc107;
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 500;
+  min-height: 20px;
+  transition: opacity 0.2s ease;
+}
+
+.validation-warning.hidden {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .header-actions {
@@ -553,8 +600,14 @@ const formatDuration = (seconds: number): string => {
   color: white;
 }
 
-.export-button:hover {
+.export-button:hover:not(:disabled) {
   background-color: #0056b3;
+}
+
+.export-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .back-button {
