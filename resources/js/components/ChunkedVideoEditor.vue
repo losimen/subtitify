@@ -3,9 +3,6 @@
     <div class="editor-header">
       <h2>Chunked Video Editor</h2>
       <div class="header-actions">
-        <button @click="addNewChunk" class="add-button">
-          + Add New Chunk
-        </button>
         <button @click="exportSubtitles" class="export-button">
           📤 Export
         </button>
