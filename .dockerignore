@@ -1,0 +1,75 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+FFMPEG_SETUP.md
+*.md
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules
+vendor
+
+# Build artifacts
+public/build
+public/hot
+public/storage
+storage/app/public
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+storage/logs
+bootstrap/cache
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+tests
+phpunit.xml
+.phpunit.result.cache
+
+# Development tools
+.php_cs.cache
+.php_cs.dist
+.php_cs
+.phpstan.neon
+.phpstan.dist.neon
+
+# Logs
+*.log
+
+# Temporary files
+tmp
+temp
+
+# Coverage reports
+coverage
+.nyc_output
+
+# Package files
+package-lock.json
+yarn.lock
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# GitHub
+.github
