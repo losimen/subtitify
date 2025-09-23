@@ -16,11 +16,14 @@
       <!-- Chunk Navigation -->
       <div class="chunk-navigation">
         <div class="chunk-list">
-          <div
-            v-for="(entry, index) in subtitleStore.subtitleData?.entries || []"
+          <div 
+            v-for="(entry, index) in subtitleStore.subtitleData?.entries || []" 
             :key="entry.id"
             class="chunk-nav-item"
-            :class="{ 'active': currentChunkIndex === index }"
+            :class="{ 
+              'active': currentChunkIndex === index,
+              'invalid': !subtitleStore.getChunkValidationStatus(entry.id).isValid
+            }"
             @click="selectChunk(index)"
           >
             <div class="chunk-number">{{ index + 1 }}</div>
@@ -183,6 +186,10 @@ const playPause = () => {
 
 const onVideoLoaded = () => {
   console.log('Video loaded successfully')
+  if (videoPlayer.value) {
+    subtitleStore.setVideoDuration(videoPlayer.value.duration)
+    console.log('Video duration set to:', videoPlayer.value.duration, 'seconds')
+  }
 }
 
 const onTimeUpdate = () => {
@@ -208,6 +215,19 @@ const onPause = () => {
 
 
 const exportSubtitles = () => {
+  const validation = subtitleStore.validateAllChunks()
+  
+  if (!validation.isValid) {
+    const errorMessage = `Cannot export subtitles. Please fix the following issues:\n\n${validation.invalidChunks.map(chunkId => {
+      const chunkIndex = subtitleStore.getChunkIndexById(chunkId)
+      const errors = validation.errors[chunkId] || []
+      return `Chunk ${chunkIndex + 1}: ${errors.join(', ')}`
+    }).join('\n')}`
+    
+    alert(errorMessage)
+    return
+  }
+  
   const exportedText = subtitleStore.exportSubtitles()
   const blob = new Blob([exportedText], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
@@ -335,6 +355,20 @@ const formatDuration = (seconds: number): string => {
 .chunk-nav-item.editing {
   border-color: #ffc107;
   background-color: #2d1b00;
+}
+
+.chunk-nav-item.invalid {
+  border-color: #dc3545 !important;
+  background-color: rgba(220, 53, 69, 0.2) !important;
+}
+
+.chunk-nav-item.invalid:hover {
+  background-color: rgba(220, 53, 69, 0.3) !important;
+}
+
+.chunk-nav-item.invalid.active {
+  border-color: #ffc107 !important;
+  background-color: rgba(220, 53, 69, 0.3) !important;
 }
 
 .chunk-number {

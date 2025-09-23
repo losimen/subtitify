@@ -5,6 +5,13 @@
       <div class="timeline-info">
         <span>Total Duration: {{ formatDuration(totalDuration) }}</span>
         <span>{{ segments.length }} segments</span>
+        <div class="validation-status" :class="{ 'has-errors': !getAllValidationStatus().isValid }">
+          <span v-if="getAllValidationStatus().isValid" class="valid-status">✅ All chunks valid</span>
+          <span v-else class="invalid-status">
+            ❌ {{ getAllValidationStatus().invalidChunks.length }} invalid chunks
+            <span v-if="hasTimelineExceedingChunks()" class="timeline-warning">⚠️ Some exceed video duration</span>
+          </span>
+        </div>
       </div>
     </div>
 
@@ -31,7 +38,8 @@
           :class="{ 
             'selected': selectedSegmentId === segment.id,
             'editing': editingSegmentId === segment.id,
-            'hover': hoveredSegmentId === segment.id
+            'hover': hoveredSegmentId === segment.id,
+            'invalid': !getChunkValidation(segment.id).isValid
           }"
           :style="getSegmentStyle(segment)"
           @mouseenter="hoveredSegmentId = segment.id"
@@ -55,6 +63,12 @@
             <div class="segment-timing">{{ segment.startTimeFormatted }} - {{ segment.endTimeFormatted }}</div>
           </div>
         </div>
+
+        <!-- Video Timeline Boundary -->
+        <div 
+          class="timeline-boundary"
+          :style="{ left: '100%' }"
+        ></div>
 
         <!-- Playhead -->
         <div 
@@ -100,6 +114,16 @@
           placeholder="Enter subtitle text..."
         ></textarea>
       </div>
+      <!-- Validation Errors -->
+      <div v-if="selectedSegment && !getChunkValidation(selectedSegment.id).isValid" class="validation-errors">
+        <h5>⚠️ Validation Errors:</h5>
+        <ul>
+          <li v-for="error in getChunkValidation(selectedSegment.id).errors" :key="error" class="error-item">
+            {{ error }}
+          </li>
+        </ul>
+      </div>
+
       <div class="segment-actions">
         <button @click="playSegment(selectedSegment)" class="play-btn">▶️ Play</button>
         <button @click="deleteSegment(selectedSegment)" class="delete-btn">🗑️ Delete</button>
@@ -143,7 +167,7 @@ const resizeHandle = ref<'left' | 'right' | null>(null)
 
 // Computed
 const segments = computed(() => subtitleStore.subtitleData?.entries || [])
-const totalDuration = computed(() => subtitleStore.totalDuration)
+const totalDuration = computed(() => subtitleStore.videoDuration || subtitleStore.totalDuration)
 const currentTime = computed(() => subtitleStore.currentTime)
 
 const selectedSegment = computed(() => subtitleStore.activeChunk)
@@ -329,6 +353,22 @@ const isValidTimeFormat = (timeStr: string): boolean => {
   return /^\d{2}:\d{2}$/.test(timeStr)
 }
 
+const getChunkValidation = (chunkId: string) => {
+  return subtitleStore.getChunkValidationStatus(chunkId)
+}
+
+const getAllValidationStatus = () => {
+  return subtitleStore.validateAllChunks()
+}
+
+const hasTimelineExceedingChunks = () => {
+  const validation = getAllValidationStatus()
+  return validation.invalidChunks.some(chunkId => {
+    const errors = validation.errors[chunkId] || []
+    return errors.some(error => error.includes('video is only') || error.includes('exceeds video'))
+  })
+}
+
 // Watch for current time changes to update playhead
 watch(currentTime, (newTime) => {
   // Auto-select segment if playhead is over it
@@ -372,6 +412,35 @@ onUnmounted(() => {
   gap: 15px;
   color: #888;
   font-size: 14px;
+  align-items: center;
+}
+
+.validation-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.validation-status.has-errors {
+  background-color: rgba(220, 53, 69, 0.2);
+  border: 1px solid #dc3545;
+}
+
+.valid-status {
+  color: #28a745;
+}
+
+.invalid-status {
+  color: #dc3545;
+}
+
+.timeline-warning {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #ff6b6b;
+  font-weight: 500;
 }
 
 .timeline-container {
@@ -451,6 +520,20 @@ onUnmounted(() => {
   background-color: #0056b3;
 }
 
+.timeline-segment.invalid {
+  background-color: #dc3545 !important;
+  border-color: #c82333 !important;
+}
+
+.timeline-segment.invalid:hover {
+  background-color: #c82333 !important;
+}
+
+.timeline-segment.invalid.selected {
+  border-color: #ffc107 !important;
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.5) !important;
+}
+
 .resize-handle {
   position: absolute;
   top: 0;
@@ -524,6 +607,29 @@ onUnmounted(() => {
   height: 10px;
   background-color: #ff4444;
   border-radius: 50%;
+}
+
+.timeline-boundary {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background-color: #ff6b6b;
+  z-index: 5;
+  border-radius: 2px;
+}
+
+.timeline-boundary::before {
+  content: 'END';
+  position: absolute;
+  top: -20px;
+  left: -15px;
+  font-size: 10px;
+  color: #ff6b6b;
+  font-weight: 600;
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
 .segment-details {
@@ -603,6 +709,31 @@ onUnmounted(() => {
 .segment-text-edit textarea:focus {
   outline: none;
   border-color: #007bff;
+}
+
+.validation-errors {
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid #dc3545;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.validation-errors h5 {
+  margin: 0 0 10px 0;
+  color: #dc3545;
+  font-size: 14px;
+}
+
+.validation-errors ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.error-item {
+  color: #dc3545;
+  font-size: 13px;
+  margin-bottom: 5px;
 }
 
 .segment-actions {
