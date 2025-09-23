@@ -113,8 +113,8 @@
             <div class="text-editing-header">
               <div class="header-with-button">
                 <h4>Edit Chunk Text</h4>
-                <button 
-                  @click="generateCreativeText" 
+                <button
+                  @click="generateCreativeText"
                   class="robot-button"
                   :disabled="!activeChunk || isGeneratingText"
                   :title="isGeneratingText ? 'Generating...' : 'Generate creative text'"
@@ -361,12 +361,6 @@ const generateCreativeText = async () => {
   try {
     isGeneratingText.value = true
 
-    // First test if API is working
-    console.log('Testing API connection...')
-    const testResponse = await fetch('/api/test')
-    const testData = await testResponse.json()
-    console.log('API test result:', testData)
-
     // Get video file from session storage
     const storedFile = sessionStorage.getItem('uploadedFile')
     if (!storedFile) {
@@ -386,13 +380,6 @@ const generateCreativeText = async () => {
       context: '' // Empty context for now
     }
 
-    // Debug: Log the request data being sent
-    console.log('Request data being sent:', requestData)
-
-    // Make API request using JSON like exportSubtitles
-    console.log('Making API request to /api/creativity/generate')
-    console.log('CSRF Token:', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'))
-    
     const apiResponse = await fetch('/api/creativity/generate', {
       method: 'POST',
       headers: {
@@ -402,9 +389,6 @@ const generateCreativeText = async () => {
       },
       body: JSON.stringify(requestData)
     })
-    
-    console.log('API Response status:', apiResponse.status)
-    console.log('API Response headers:', Object.fromEntries(apiResponse.headers.entries()))
 
     // Check if response is HTML (error page) instead of JSON
     const contentType = apiResponse.headers.get('content-type')
@@ -417,7 +401,7 @@ const generateCreativeText = async () => {
     if (!apiResponse.ok) {
       const errorData = await apiResponse.json().catch(() => ({ error: 'Unknown error' }))
       console.error('API Error Details:', errorData)
-      
+
       // Handle validation errors specifically
       if (apiResponse.status === 422 && errorData.errors) {
         const validationErrors = Object.entries(errorData.errors)
@@ -425,7 +409,7 @@ const generateCreativeText = async () => {
           .join('; ')
         throw new Error(`Validation failed: ${validationErrors}`)
       }
-      
+
       throw new Error(`API request failed: ${apiResponse.status} - ${errorData.message || errorData.error || 'Unknown error'}`)
     }
 
@@ -1304,7 +1288,7 @@ const formatDuration = (seconds: number): string => {
     height: 32px;
     font-size: 16px;
   }
-  
+
   .header-with-button {
     gap: 8px;
   }
