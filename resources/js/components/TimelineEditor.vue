@@ -16,10 +16,10 @@
     </div>
 
     <div class="timeline-container" ref="timelineContainer">
-      <div 
-        class="timeline-track" 
+      <div
+        class="timeline-track"
         :class="{ 'blocked-extension': isExtensionBlocked }"
-        ref="timelineTrack" 
+        ref="timelineTrack"
         @click="handleTimelineClick"
       >
         <!-- Time markers -->
@@ -86,8 +86,8 @@
     </div>
 
     <!-- Extension Blocked Notification -->
-    <div 
-      v-if="isExtensionBlocked" 
+    <div
+      v-if="isExtensionBlocked"
       class="extension-blocked-notification"
       :class="{
         'blocked-intersection': blockedExtensionReason === 'intersection',
@@ -104,10 +104,97 @@
             {{ blockedExtensionReason === 'intersection' ? 'Segment Overlap' : 'Boundary Reached' }}
           </div>
           <div class="notification-message">
-            {{ blockedExtensionReason === 'intersection' 
-              ? 'Cannot extend: would overlap with another segment' 
+            {{ blockedExtensionReason === 'intersection'
+              ? 'Cannot extend: would overlap with another segment'
               : 'Cannot extend: reached video boundary' }}
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Chunk Modal -->
+    <div v-if="showAddChunkModal" class="modal-overlay" @click="closeAddChunkModal">
+      <div class="add-chunk-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Add New Subtitle Chunk</h3>
+          <button class="close-btn" @click="closeAddChunkModal">✕</button>
+        </div>
+
+        <div class="modal-content">
+          <div class="form-group">
+            <label for="chunk-text">Subtitle Text</label>
+            <textarea
+              id="chunk-text"
+              v-model="newChunkData.text"
+              placeholder="Enter subtitle text..."
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="chunk-start">Start Time</label>
+              <input
+                id="chunk-start"
+                v-model="newChunkData.startTimeFormatted"
+                type="text"
+                placeholder="MM:SS"
+                @blur="validateTimeFormat('start')"
+              />
+              <div class="time-input-hint">Format: MM:SS (e.g., 01:30)</div>
+            </div>
+
+            <div class="form-group">
+              <label for="chunk-end">End Time</label>
+              <input
+                id="chunk-end"
+                v-model="newChunkData.endTimeFormatted"
+                type="text"
+                placeholder="MM:SS"
+                @blur="validateTimeFormat('end')"
+              />
+              <div class="time-input-hint">Format: MM:SS (e.g., 02:00)</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Quick Position</label>
+            <div class="quick-position-buttons">
+              <button
+                class="quick-btn"
+                @click="setQuickPosition('beginning')"
+              >
+                At Beginning
+              </button>
+              <button
+                class="quick-btn"
+                @click="setQuickPosition('middle')"
+              >
+                At Middle
+              </button>
+              <button
+                class="quick-btn"
+                @click="setQuickPosition('end')"
+              >
+                At End
+              </button>
+              <button
+                class="quick-btn"
+                @click="setQuickPosition('current')"
+              >
+                At Playhead
+              </button>
+            </div>
+          </div>
+
+          <div v-if="newChunkError" class="error-message">
+            {{ newChunkError }}
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeAddChunkModal">Cancel</button>
+          <button class="btn-primary" @click="createChunkFromModal">Create Chunk</button>
         </div>
       </div>
     </div>
@@ -143,6 +230,15 @@ const resizeHandle = ref<'left' | 'right' | null>(null)
 const resizingSegment = ref<SubtitleEntry | null>(null)
 const isExtensionBlocked = ref(false)
 const blockedExtensionReason = ref<'intersection' | 'boundary' | null>(null)
+
+// Chunk creation state
+const showAddChunkModal = ref(false)
+const newChunkData = reactive({
+  text: '',
+  startTimeFormatted: '',
+  endTimeFormatted: ''
+})
+const newChunkError = ref('')
 
 // Computed
 const segments = computed(() => subtitleStore.subtitleData?.entries || [])
@@ -195,8 +291,16 @@ const handleTimelineClick = (event: MouseEvent) => {
     return // Let the segment handle the click
   }
 
-  // Click was on empty space - do nothing (don't change selection)
-  // This prevents accidental deselection when clicking on empty timeline areas
+  // Click was on empty space - create new chunk at click position
+  if (timelineTrack.value) {
+    const rect = timelineTrack.value.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    const clickPercent = clickX / rect.width
+    const clickTime = clickPercent * totalDuration.value
+
+    // Create new chunk at click position
+    createChunkAtTime(clickTime)
+  }
 }
 
 
@@ -228,7 +332,7 @@ const handleResize = (event: MouseEvent) => {
   if (resizeHandle.value === 'left') {
     const newStartTime = Math.min(newTime, resizingSegment.value.endTime - 0.5) // Minimum 0.5s duration
     const validation = validateResizeExtension(resizingSegment.value, newStartTime, resizingSegment.value.endTime, 'left')
-    
+
     if (validation.isValid) {
       updateSegmentTime(resizingSegment.value, newStartTime, resizingSegment.value.endTime)
     } else {
@@ -238,7 +342,7 @@ const handleResize = (event: MouseEvent) => {
   } else {
     const newEndTime = Math.max(newTime, resizingSegment.value.startTime + 0.5) // Minimum 0.5s duration
     const validation = validateResizeExtension(resizingSegment.value, resizingSegment.value.startTime, newEndTime, 'right')
-    
+
     if (validation.isValid) {
       updateSegmentTime(resizingSegment.value, resizingSegment.value.startTime, newEndTime)
     } else {
@@ -397,7 +501,7 @@ const hasTimelineExceedingChunks = () => {
 const checkSegmentIntersection = (segment: SubtitleEntry, newStartTime: number, newEndTime: number) => {
   return segments.value.some(otherSegment => {
     if (otherSegment.id === segment.id) return false
-    
+
     // Check if the new time range overlaps with any other segment
     return (newStartTime < otherSegment.endTime && newEndTime > otherSegment.startTime)
   })
@@ -412,24 +516,167 @@ const validateResizeExtension = (segment: SubtitleEntry, newStartTime: number, n
   if (checkBoundaryViolation(newStartTime, newEndTime)) {
     return { isValid: false, reason: 'boundary' }
   }
-  
+
   // Check for intersections with other segments
   if (checkSegmentIntersection(segment, newStartTime, newEndTime)) {
     return { isValid: false, reason: 'intersection' }
   }
-  
+
   return { isValid: true, reason: null }
 }
 
 const showBlockedExtensionAnimation = (reason: 'intersection' | 'boundary') => {
   isExtensionBlocked.value = true
   blockedExtensionReason.value = reason
-  
+
   // Hide animation after 1.5 seconds
   setTimeout(() => {
     isExtensionBlocked.value = false
     blockedExtensionReason.value = null
   }, 1500)
+}
+
+// Chunk creation methods
+const createChunkAtTime = (time: number) => {
+  const duration = 2 // Default 2 seconds duration
+  const startTime = Math.max(0, time - duration / 2)
+  const endTime = Math.min(totalDuration.value, startTime + duration)
+
+  // Adjust if we hit boundaries
+  const adjustedStartTime = endTime - duration >= 0 ? endTime - duration : 0
+  const adjustedEndTime = adjustedStartTime + duration
+
+  const newEntry: SubtitleEntry = {
+    id: subtitleStore.generateNewId(),
+    startTime: adjustedStartTime,
+    endTime: adjustedEndTime,
+    text: 'New subtitle text',
+    startTimeFormatted: SubtitleService.secondsToTimeString(adjustedStartTime),
+    endTimeFormatted: SubtitleService.secondsToTimeString(adjustedEndTime),
+    styling: {
+      size: 'medium',
+      color: 'white',
+      position: 'bottom'
+    }
+  }
+
+  // Check for intersections before adding
+  if (checkSegmentIntersection(newEntry, newEntry.startTime, newEntry.endTime)) {
+    showBlockedExtensionAnimation('intersection')
+    return
+  }
+
+  subtitleStore.addEntry(newEntry)
+  subtitleStore.saveToSession()
+  subtitleStore.setActiveChunkById(newEntry.id)
+  lastEditedChunkId.value = newEntry.id
+}
+
+const closeAddChunkModal = () => {
+  showAddChunkModal.value = false
+  newChunkError.value = ''
+  // Reset form data
+  newChunkData.text = ''
+  newChunkData.startTimeFormatted = ''
+  newChunkData.endTimeFormatted = ''
+}
+
+const validateTimeFormat = (field: 'start' | 'end') => {
+  const timeStr = field === 'start' ? newChunkData.startTimeFormatted : newChunkData.endTimeFormatted
+
+  if (timeStr && !isValidTimeFormat(timeStr)) {
+    newChunkError.value = `Invalid time format for ${field} time. Use MM:SS format (e.g., 01:30)`
+    return false
+  }
+
+  newChunkError.value = ''
+  return true
+}
+
+const setQuickPosition = (position: 'beginning' | 'middle' | 'end' | 'current') => {
+  const duration = 2 // Default 2 seconds duration
+
+  switch (position) {
+    case 'beginning':
+      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(0)
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(duration)
+      break
+    case 'middle':
+      const middleTime = totalDuration.value / 2
+      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(middleTime - duration / 2)
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(middleTime + duration / 2)
+      break
+    case 'end':
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(totalDuration.value)
+      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(Math.max(0, totalDuration.value - duration))
+      break
+    case 'current':
+      const currentTimeValue = currentTime.value
+      newChunkData.startTimeFormatted = SubtitleService.secondsToTimeString(currentTimeValue)
+      newChunkData.endTimeFormatted = SubtitleService.secondsToTimeString(Math.min(totalDuration.value, currentTimeValue + duration))
+      break
+  }
+
+  newChunkError.value = ''
+}
+
+const createChunkFromModal = () => {
+  // Validate inputs
+  if (!newChunkData.text.trim()) {
+    newChunkError.value = 'Please enter subtitle text'
+    return
+  }
+
+  if (!newChunkData.startTimeFormatted || !newChunkData.endTimeFormatted) {
+    newChunkError.value = 'Please enter both start and end times'
+    return
+  }
+
+  if (!validateTimeFormat('start') || !validateTimeFormat('end')) {
+    return
+  }
+
+  const startTime = SubtitleService.timeStringToSeconds(newChunkData.startTimeFormatted)
+  const endTime = SubtitleService.timeStringToSeconds(newChunkData.endTimeFormatted)
+
+  if (startTime >= endTime) {
+    newChunkError.value = 'End time must be after start time'
+    return
+  }
+
+  if (startTime < 0 || endTime > totalDuration.value) {
+    newChunkError.value = 'Times must be within video duration (0 to ' + formatDuration(totalDuration.value) + ')'
+    return
+  }
+
+  // Check for intersections
+  if (checkSegmentIntersection({ id: 'temp' } as SubtitleEntry, startTime, endTime)) {
+    newChunkError.value = 'This time range overlaps with an existing segment'
+    return
+  }
+
+  // Create the chunk
+  const newEntry: SubtitleEntry = {
+    id: subtitleStore.generateNewId(),
+    startTime,
+    endTime,
+    text: newChunkData.text.trim(),
+    startTimeFormatted: newChunkData.startTimeFormatted,
+    endTimeFormatted: newChunkData.endTimeFormatted,
+    styling: {
+      size: 'medium',
+      color: 'white',
+      position: 'bottom'
+    }
+  }
+
+  subtitleStore.addEntry(newEntry)
+  subtitleStore.saveToSession()
+  subtitleStore.setActiveChunkById(newEntry.id)
+  lastEditedChunkId.value = newEntry.id
+
+  // Close modal and reset form
+  closeAddChunkModal()
 }
 
 // Note: Removed automatic time-based selection
@@ -975,6 +1222,194 @@ onUnmounted(() => {
   100% { transform: scale(1); }
 }
 
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+.add-chunk-modal {
+  background-color: #333;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #444;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #007bff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  color: white;
+  background-color: #444;
+}
+
+.modal-content {
+  padding: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #ccc;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 12px;
+  background-color: #444;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.time-input-hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.quick-position-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.quick-btn {
+  padding: 8px 12px;
+  background-color: #444;
+  color: white;
+  border: 1px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.quick-btn:hover {
+  background-color: #555;
+  border-color: #007bff;
+}
+
+.error-message {
+  background-color: rgba(220, 53, 69, 0.1);
+  border: 1px solid #dc3545;
+  border-radius: 6px;
+  padding: 12px;
+  color: #dc3545;
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #444;
+}
+
+.btn-primary,
+.btn-secondary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #545b62;
+}
+
 @media (max-width: 768px) {
   .detail-grid {
     grid-template-columns: 1fr;
@@ -995,6 +1430,28 @@ onUnmounted(() => {
 
   .notification-message {
     font-size: 12px;
+  }
+
+  .add-chunk-modal {
+    width: 95%;
+    margin: 20px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-position-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
   }
 }
 </style>
