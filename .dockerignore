@@ -26,7 +26,6 @@ storage/framework/cache
 storage/framework/sessions
 storage/framework/views
 storage/logs
-bootstrap/cache
 
 # IDE files
 .vscode
@@ -63,7 +62,6 @@ coverage
 .nyc_output
 
 # Package files
-package-lock.json
 yarn.lock
 
 # Docker files
