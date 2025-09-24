@@ -1,10 +1,7 @@
-# Use PHP 8.3 with Apache
-FROM php:8.3-apache
+FROM php:8.3-fpm
 
-# Set working directory
 WORKDIR /var/www/html
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -18,60 +15,27 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions
 RUN docker-php-ext-install mbstring exif pcntl bcmath gd
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Copy composer files
-COPY composer.json composer.lock ./
-
-# Copy package files
-COPY package*.json ./
-
-# Copy application code
 COPY . .
 
-# Install PHP dependencies
+RUN chmod -R 775 /var/www/html/bootstrap/cache
 RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Install Node.js dependencies
 RUN npm ci --only=production
 
-# Set permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache
 
-# Build frontend assets
 RUN npm run build
 
-# Clear Laravel caches and optimize
 RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
 
-# Create .env file if it doesn't exist
 RUN if [ ! -f .env ]; then cp .env.example .env; fi
 
-# Generate application key
-RUN php artisan key:generate
+EXPOSE 9000
 
-# Enable Apache mod_rewrite
-RUN a2enmod rewrite
-
-# Configure Apache
-RUN echo '<VirtualHost *:80>\n\
-    DocumentRoot /var/www/html/public\n\
-    <Directory /var/www/html/public>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
-
-# Expose port 80
-EXPOSE 80
-
-# Start Apache
-CMD ["apache2-foreground"]
+CMD ["php-fpm"]
