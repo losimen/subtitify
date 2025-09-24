@@ -37,7 +37,6 @@ RUN chmod -R 755 storage/framework/views
 RUN touch /var/www/html/database/database.sqlite
 RUN chmod 644 /var/www/html/database/database.sqlite
 
-
 RUN php artisan key:generate --no-interaction
 RUN php artisan migrate
 RUN php artisan config:cache
@@ -52,7 +51,5 @@ RUN npm prune --omit=dev
 RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache
-
-EXPOSE 9000
 
 CMD ["php-fpm"]
