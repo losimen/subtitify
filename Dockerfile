@@ -34,6 +34,10 @@ RUN if [ ! -f .env ]; then cp .env.example .env; fi
 RUN mkdir -p storage/framework/views
 RUN chmod -R 755 storage/framework/views
 
+RUN touch /var/www/html/database/database.sqlite
+RUN chmod 644 /var/www/html/database/database.sqlite
+
+
 RUN php artisan key:generate --no-interaction
 RUN php artisan config:cache
 RUN php artisan view:clear
