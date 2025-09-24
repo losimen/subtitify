@@ -39,6 +39,7 @@ RUN chmod 644 /var/www/html/database/database.sqlite
 
 
 RUN php artisan key:generate --no-interaction
+RUN php artisan migrate
 RUN php artisan config:cache
 RUN php artisan view:clear
 RUN php artisan cache:clear
